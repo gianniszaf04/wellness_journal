@@ -3,8 +3,8 @@ declare(strict_types=1);
 namespace App\Middleware;
 
 class RateLimit {
-    private int $maxAttempts = 5;
-    private int $decaySec = 900 ;
+    protected int $maxAttempts = 5;
+    protected int $decaySec = 900 ;
 
     public function handle(): bool {
 
@@ -59,10 +59,14 @@ class RateLimit {
         }
     }
 
+    // ποιος μετραει: εδω η IP, οι υποκλασεις μπορουν να το αλλαξουν
+    protected static function identity(): string {
+        return $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+    }
+
     private static  function fileFor(): string {
-        $ip=$_SERVER['REMOTE_ADDR'] ?? 'unknown';
         $uri= $_SERVER['REQUEST_URI'] ?? '';
-        $key= hash('sha256', $ip . '|' . $uri);
+        $key= hash('sha256', static::identity() . '|' . $uri);
 
         return BASE_PATH . 'storage' . DIRECTORY_SEPARATOR . 'ratelimit'  . DIRECTORY_SEPARATOR . $key . '.json';
     }

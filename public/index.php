@@ -10,6 +10,8 @@ $appDebug = filter_var(getenv('APP_DEBUG'), FILTER_VALIDATE_BOOLEAN);
 ini_set('display_errors', $appDebug ? '1' : '0');
 ini_set('display_startup_errors', $appDebug ? '1' : '0');
 error_reporting(E_ALL);
+// τα δεκαδικα στο JSON να βγαινουν οπως τα γραφουμε (-0.42 και οχι -0.41999999...)
+ini_set('serialize_precision', '-1');
 define('APP_URL',rtrim((string) getenv('APP_URL'), '/'));
 require_once BASE_PATH . 'App/Core/helpers.php';
 
