@@ -13,7 +13,7 @@ class RequireLogin {
         if(!isset($_SESSION['user_id'])) {
             $uri=$_SERVER['REQUEST_URI'] ?? '' ;
 
-            if (str_starts_with($uri,'/api/')) {
+            if (str_contains($uri,'/api/')) {
                 http_response_code(401);
                 header('Content-Type:application/json;charset=utf-8');
                 echo json_encode(['success' => false, 'error'=>'Παρακαλώ συνδεθείτε. Μη εξουσιοδοτημένη πρόσβαση']);

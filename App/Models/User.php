@@ -34,10 +34,11 @@ class User {
         $email = trim($email);
 
         // Validate input
-        if (strlen($username) < 3 || strlen($username) > 50) {
+        // mb_strlen: μετραει χαρακτηρες, οχι bytes (τα ελληνικα πιανουν 2 bytes το καθενα)
+        if (mb_strlen($username) < 3 || mb_strlen($username) > 50) {
             return false;
         }
-        if (strlen($name) < 1 || strlen($name) > 70) {
+        if (mb_strlen($name) < 1 || mb_strlen($name) > 70) {
             return false;
         }
         if (strlen($email) < 5 || strlen($email) > 254) {

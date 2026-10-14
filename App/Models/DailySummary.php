@@ -8,14 +8,22 @@ use PDO;
 class DailySummary {
     private PDO $db;
 
+    // μεσος ορος απο ολες τις εγγραφες της ημερας (το AVG αγνοει τα NULL)
+    private const AVG_SENTIMENT_QUERY =
+    'SELECT AVG(sentiment_score) AS avg_sentiment_score
+    FROM entries
+    WHERE user_id = :user_id
+    AND entry_date = :date';
+
+    // συχνοτερο συναισθημα της ημερας - σε ισοπαλια κερδιζει το πιο προσφατο
     private const DOMINANT_EMOTION_QUERY =
-    'SELECT COUNT(*) AS total, AVG(sentiment_score) AS  avg_sentiment_score, e.dominant_emotion_id
-    FROM entries e 
-    WHERE e.user_id = :user_id
-    AND e.entry_date= :date
-    AND e.sentiment_score IS NOT NULL 
-    GROUP BY e.dominant_emotion_id
-    ORDER BY COUNT(*) DESC
+    'SELECT dominant_emotion_id
+    FROM entries
+    WHERE user_id = :user_id
+    AND entry_date = :date
+    AND dominant_emotion_id IS NOT NULL
+    GROUP BY dominant_emotion_id
+    ORDER BY COUNT(*) DESC, MAX(id) DESC
     LIMIT 1';
 
     public function __construct() {
@@ -94,9 +102,15 @@ class DailySummary {
     }
 
     public function recalculate(int $userId, string $date): void {
+        $params = [':user_id' => $userId, ':date' => $date];
+
+        $stmt = $this->db->prepare(self::AVG_SENTIMENT_QUERY);
+        $stmt->execute($params);
+        $avg = $stmt->fetchColumn();
+
         $stmt = $this->db->prepare(self::DOMINANT_EMOTION_QUERY);
-        $stmt->execute([':user_id' => $userId, ':date' => $date]);
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        $stmt->execute($params);
+        $emotionId = $stmt->fetchColumn();
 
         $totalEntriesCount = $this->getTotalEntriesCount($userId,$date);
         $this->getOrCreate($userId,$date);
@@ -104,8 +118,8 @@ class DailySummary {
         $this->updateSummary(
             $userId,
             $date,
-            $row ? (float) $row['avg_sentiment_score'] : null,
-            $row ? (int) $row['dominant_emotion_id'] : null,
+            $avg !== null && $avg !== false ? round((float) $avg, 4) : null,
+            $emotionId !== null && $emotionId !== false ? (int) $emotionId : null,
             $totalEntriesCount
         );
     }

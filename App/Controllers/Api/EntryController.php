@@ -15,7 +15,8 @@ use App\Core\Request;
 class EntryController
 {
     private Entry $entryModel;
-    private const SENTIMENT_WARNING_THRESHOLD = -0.5;
+    // προεπιλογη αν το SENTIMENT_WARNING_THRESHOLD λειπει ή ειναι λαθος στο .env
+    private const DEFAULT_WARNING_THRESHOLD = -0.5;
 
     public function __construct()
     {
@@ -47,7 +48,7 @@ class EntryController
             $this->analyzeAndPersist($id, $userId, $body, $entryDate, false);
 
         try {
-            if ($sentimentScore !== null && $sentimentScore < self::SENTIMENT_WARNING_THRESHOLD) {
+            if ($sentimentScore !== null && $sentimentScore < $this->warningThreshold()) {
                 $insightModel = new Insight();
                 $insightModel->create(
                     $userId,
@@ -187,6 +188,23 @@ class EntryController
         }
 
         return [$sentimentScore, $dominantEmotionId, $emotionConfidence];
+    }
+
+    private function warningThreshold(): float
+    {
+        $value = getenv('SENTIMENT_WARNING_THRESHOLD');
+
+        if ($value === false || !is_numeric(trim($value))) {
+            return self::DEFAULT_WARNING_THRESHOLD;
+        }
+
+        $threshold = (float) $value;
+        // το sentiment score ειναι παντα στο [-1, 1]
+        if ($threshold < -1.0 || $threshold > 1.0) {
+            return self::DEFAULT_WARNING_THRESHOLD;
+        }
+
+        return $threshold;
     }
 
     private function intensityFromScore(?float $score): int

@@ -44,8 +44,8 @@ class AuthController {
         <input type="password" name="password" placeholder="Κωδικος" required><br>
         <button type="submit">Εγγραφη</button>
         </form>
-            <a href="'  .url('register') . '" >Εγγραφη</a>
-        </body></html>  
+            <a href="'  .url('login') . '" >Συνδεση</a>
+        </body></html>
         ';
     }
 
@@ -59,6 +59,21 @@ class AuthController {
 
         if($username ==='' || $name ==='' || $email === '' || $password === '') {
             $this->redirectWithError('/register','Ολα τα πεδία είναι υποχρεωτικά.');
+            return;
+        }
+
+        if (mb_strlen($username) < 3 || mb_strlen($username) > 50) {
+            $this->redirectWithError('/register', 'Το username πρέπει να έχει από 3 έως 50 χαρακτήρες.');
+            return;
+        }
+
+        if (mb_strlen($name) > 70) {
+            $this->redirectWithError('/register', 'Το ονοματεπώνυμο μπορεί να έχει έως 70 χαρακτήρες.');
+            return;
+        }
+
+        if (strlen($email) > 254 || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $this->redirectWithError('/register', 'Το email δεν είναι έγκυρο.');
             return;
         }
 
@@ -77,7 +92,10 @@ class AuthController {
             return;
         }
 
-        $this->userModel->create($username,$name,$email,$password);
+        if (!$this->userModel->create($username,$name,$email,$password)) {
+            $this->redirectWithError('/register', 'Η εγγραφή δεν ολοκληρώθηκε. Δοκίμασε ξανά.');
+            return;
+        }
         redirect('/login');
     }
 
@@ -98,6 +116,12 @@ class AuthController {
             return;
         }
 
+        // ελεγχος μετα τον κωδικο, για να μη φαινεται σε τριτους ποιοι λογαριασμοι υπαρχουν
+        if ((int) $user['status'] === 0) {
+            $this->redirectWithError('/login', 'Ο λογαριασμός σου είναι απενεργοποιημένος.');
+            return;
+        }
+
         if(session_status() === PHP_SESSION_NONE) {
             session_start();
         }
@@ -114,6 +138,21 @@ class AuthController {
     public function logout(): void {
         if(session_status()=== PHP_SESSION_NONE) {
             session_start();
+        }
+
+        $_SESSION = [];
+
+        // σβηνουμε και το cookie απο τον browser, με τις ιδιες ρυθμισεις που ειχε οταν δημιουργηθηκε
+        if (ini_get('session.use_cookies')) {
+            $params = session_get_cookie_params();
+            setcookie(session_name(), '', [
+                'expires'  => time() - 42000,
+                'path'     => $params['path'],
+                'domain'   => $params['domain'],
+                'secure'   => $params['secure'],
+                'httponly' => $params['httponly'],
+                'samesite' => $params['samesite'],
+            ]);
         }
 
         session_destroy();

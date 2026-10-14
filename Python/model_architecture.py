@@ -4,7 +4,7 @@ from transformers import AutoModel
 
 from labels import HEAD_DIMS
 
-MODEL_NAME = "nlpaued/bert-base-greek-uncased-v1"
+MODEL_NAME = "nlpaueb/bert-base-greek-uncased-v1"
 
 
 class WellnessMTLModel(nn.Module): 
