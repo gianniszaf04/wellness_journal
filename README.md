@@ -31,6 +31,11 @@
    MIGRATE_DB_USER=root MIGRATE_DB_PASS= php database/migrate.php            (τρέχει τα νέα)
    MIGRATE_DB_USER=root MIGRATE_DB_PASS= php database/migrate.php --status   (τι έχει τρέξει)
 
+ == ΣΥΝΤΗΡΗΣΗ ==
+ Το bin/maintenance.php σβήνει λογαριασμούς μετά τις 30 μέρες διαγραφής, παλιά insights,
+ daily messages και relations, και τα ληγμένα αρχεία του rate limit. Μια φορά τη μέρα από cron, π.χ.:
+   0 4 * * * /Applications/XAMPP/xamppfiles/bin/php /Applications/XAMPP/xamppfiles/htdocs/wellness_journal/bin/maintenance.php
+
  == AI == 
  ...
 
@@ -38,6 +43,7 @@
  Αρχιτεκτονική φακέλου 
  wellness diary/
    --app/
+   --bin/
    --public/
    --routes/
    --config/

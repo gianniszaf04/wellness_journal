@@ -46,6 +46,19 @@ class RateLimit {
         }
     }
 
+    // σβηνει αρχεια που δεν αγγιχτηκαν μεσα στο παραθυρο της βασικης κλασης (το μεγαλυτερο), ολα τα hits τους εχουν ληξει
+    public static function purgeStale(): int {
+        $cutoff = time() - (new self())->decaySec;
+        $removed = 0;
+
+        foreach (glob(dirname(self::fileFor('')) . DIRECTORY_SEPARATOR . '*.json') ?: [] as $file) {
+            if (filemtime($file) < $cutoff && @unlink($file)) {
+                $removed++;
+            }
+        }
+        return $removed;
+    }
+
     // ποιος μετραει: εδω η IP, οι υποκλασεις μπορουν να το αλλαξουν
     protected static function identity(): string {
         return $_SERVER['REMOTE_ADDR'] ?? 'unknown';
