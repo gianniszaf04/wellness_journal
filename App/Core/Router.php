@@ -136,40 +136,63 @@ class Router
         $method = strtoupper($requestMethod);
         $path = (string) parse_url($requestUri, PHP_URL_PATH);
         $uri = $this->normalizeUri($path);
+        $isApi = str_starts_with($uri, '/api/');
 
-        if (!isset($this->routes[$method])) {
-            $this->sendError(404, 'Page not found.');
+        // HEAD απανταει οπως το GET, ο Apache κραταει μονο τα headers
+        $matched = $this->findRoute($method, $uri)
+            ?? ($method === 'HEAD' ? $this->findRoute('GET', $uri) : null);
+
+        if ($matched === null) {
+            $allowed = $this->allowedMethods($uri);
+
+            if ($allowed !== []) {
+                header('Allow: ' . implode(', ', $allowed));
+                $this->sendError(405, 'Η μέθοδος δεν επιτρέπεται.', $isApi);
+                return;
+            }
+
+            $this->sendError(404, 'Η σελίδα δεν βρέθηκε.', $isApi);
             return;
         }
 
-        $route = $this->routes[$method][$uri] ?? null;
-        $params = [];
+        // και τα middleware μεσα στο try, γιατι κι αυτα πιανουν τη βαση
+        try {
+            if (!$this->runMiddleware($matched['route']['middleware'])) {
+                $this->sendError(403, 'Δεν επιτρέπεται η πρόσβαση.', $isApi);
+                return;
+            }
 
-        if ($route === null) {
-            $matched = $this->matchRoute($method, $uri);
+            $this->executeAction($matched['route']['action'], $matched['params']);
+        } catch (Throwable $e) {
+            error_log(($e->getMessage() . PHP_EOL . $e->getTraceAsString()));
+            $this->sendError(500, 'Εσωτερικό σφάλμα διακομιστή.', $isApi);
+        }
+    }
 
-            if ($matched !== null) {
-                $route = $matched['route'];
-                $params = $matched['params'];
+    private function findRoute(string $method, string $uri): ?array
+    {
+        if (isset($this->routes[$method][$uri])) {
+            return ['route' => $this->routes[$method][$uri], 'params' => []];
+        }
+
+        return $this->matchRoute($method, $uri);
+    }
+
+    private function allowedMethods(string $uri): array
+    {
+        $allowed = [];
+
+        foreach (array_keys($this->routes) as $method) {
+            if ($this->findRoute($method, $uri) !== null) {
+                $allowed[] = $method;
             }
         }
 
-        if ($route === null) {
-            $this->sendError(404, 'Page not found.');
-            return;
+        if (in_array('GET', $allowed, true)) {
+            $allowed[] = 'HEAD';
         }
 
-        if (!$this->runMiddleware($route['middleware'])) {
-            $this->sendError(403, 'Access denied,');
-            return;
-        }
-
-        try {
-            $this->executeAction($route['action'], $params);
-        } catch (Throwable $e) {
-            error_log(($e->getMessage() . PHP_EOL . $e->getTraceAsString()));
-            $this->sendError(500, 'Internal server error.');
-        }
+        return $allowed;
     }
 
     private function runMiddleware(array $middlewares): bool
@@ -283,21 +306,26 @@ class Router
         throw new InvalidArgumentException('Invalid route action format');
     }
 
-    private function sendError(int $statusCode, string $message): void
+    private function sendError(int $statusCode, string $message, bool $isApi = false): void
     {
         if (!headers_sent()) {
             http_response_code($statusCode);
-            header('Content-type: text/html; charset=utf-8');
+            header($isApi ? 'Content-type: application/json; charset=utf-8' : 'Content-type: text/html; charset=utf-8');
         } else {
             http_response_code($statusCode);
         }
 
+        // ιδιο σχημα με τα υπολοιπα λαθη του API
+        if ($isApi) {
+            echo json_encode(['success' => false, 'error' => $message], JSON_UNESCAPED_UNICODE);
+            return;
+        }
 
         $safeStatus = htmlspecialchars((string) $statusCode, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
         $safeMessage = htmlspecialchars($message, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 
         echo " <!doctype html>
-        <html lang='en'>
+        <html lang='el'>
         <head>
             <meta charset='utf-8'> 
             <title> Error {$safeStatus} </title>
