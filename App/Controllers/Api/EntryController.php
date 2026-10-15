@@ -118,6 +118,8 @@ class EntryController
         $emotionConfidence = null;
         $entities = [];
         $aiData = null;
+        $ironyProbability = null;
+        $distortionProbability = null;
 
         try {
             $aiData = (new AiClient())->analyze($body);
@@ -138,6 +140,8 @@ class EntryController
                 }
 
                 $entities = $aiData['entities'] ?? [];
+                $ironyProbability = AiClient::probability($aiData, 'irony');
+                $distortionProbability = AiClient::probability($aiData, 'distortion');
             }
         } catch (\Exception $e) {
             error_log('AI Service Error: ' . $e->getMessage());
@@ -148,13 +152,16 @@ class EntryController
             try {
                 $db = (new \Database())->getConnection();
                 $stmt = $db->prepare(
-                    'UPDATE entries SET sentiment_score = :sentiment, dominant_emotion_id = :emotion
+                    'UPDATE entries SET sentiment_score = :sentiment, dominant_emotion_id = :emotion,
+                    irony_probability = :irony, distortion_probability = :distortion
                     WHERE id = :id AND user_id = :user_id'
                 );
 
                 $stmt->execute([
                     ':sentiment' => $sentimentScore,
                     ':emotion' => $dominantEmotionId,
+                    ':irony' => $ironyProbability,
+                    ':distortion' => $distortionProbability,
                     ':id' => $id,
                     ':user_id' => $userId
                 ]);

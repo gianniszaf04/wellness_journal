@@ -42,6 +42,8 @@ class Entry{
     public function findByIdForUser(int $id, int $userId): ?array {
         $stmt=$this->db->prepare(
             'SELECT e.id, e.user_id, e.body, e.sentiment_score, e.dominant_emotion_id,
+            e.irony_probability, e.distortion_probability,
+            e.irony_probability > 0.5 AS irony_detected, e.distortion_probability > 0.5 AS distortion_detected,
             e.entry_date, e.created_at, e.updated_at,
             em.name AS emotion_name, em.emoji AS emotion_emoji, em.color AS emotion_color
             FROM entries e
@@ -86,6 +88,8 @@ class Entry{
 
         $stmt = $this->db->prepare(
             'SELECT e.id, e.user_id, e.body, e.sentiment_score, e.dominant_emotion_id,
+            e.irony_probability, e.distortion_probability,
+            e.irony_probability > 0.5 AS irony_detected, e.distortion_probability > 0.5 AS distortion_detected,
             e.entry_date, e.created_at, e.updated_at,
             em.name AS emotion_name, em.emoji AS emotion_emoji, em.color AS emotion_color
             FROM entries e
@@ -249,6 +253,8 @@ class Entry{
 
         $stmt = $this->db->prepare(
             'SELECT e.id, e.user_id, e.body, e.sentiment_score, e.dominant_emotion_id,
+            e.irony_probability, e.distortion_probability,
+            e.irony_probability > 0.5 AS irony_detected, e.distortion_probability > 0.5 AS distortion_detected,
             e.entry_date, e.created_at, e.updated_at,
             em.name AS emotion_name, em.emoji AS emotion_emoji, em.color AS emotion_color
             FROM entries e

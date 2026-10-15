@@ -68,6 +68,8 @@ entry_date DATE NOT NULL,
 body MEDIUMTEXT NOT NULL,
 sentiment_score DECIMAL (6,4) NULL,
 dominant_emotion_id BIGINT UNSIGNED  NULL,
+irony_probability DECIMAL(5,4) NULL, -- 0-1, απο το μοντελο
+distortion_probability DECIMAL(5,4) NULL, -- 0-1, γνωστικη διαστρεβλωση (CBT)
 created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
@@ -214,7 +216,8 @@ applied_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 
 -- οσα περιεχονται ηδη στο παραπανω schema
 INSERT IGNORE INTO schema_migrations (migration) VALUES
-('001_add_deletion_requested_at.sql');
+('001_add_deletion_requested_at.sql'),
+('002_add_irony_distortion_to_entries.sql');
 
 
 

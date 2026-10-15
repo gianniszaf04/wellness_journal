@@ -53,7 +53,16 @@ class SentimentController
                     'color' => $emotion['color'],
                     'confidence' => $confidence !== null ? round((float) $confidence, 4) : null,
                 ] : null,
+                'irony' => $this->binaryTask($aiData, 'irony'),
+                'distortion' => $this->binaryTask($aiData, 'distortion'),
             ],
         ]);
+    }
+
+    private function binaryTask(array $aiData, string $task): ?array
+    {
+        $probability = AiClient::probability($aiData, $task);
+
+        return $probability === null ? null : ['probability' => $probability, 'detected' => AiClient::detected($probability)];
     }
 }

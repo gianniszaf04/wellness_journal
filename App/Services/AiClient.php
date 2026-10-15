@@ -45,4 +45,21 @@ class AiClient
 
         return $aiData;
     }
+
+    // P(Ναι) για irony/distortion απο το analysis, null αν λειπει ή δεν ειναι αριθμος στο [0,1]
+    public static function probability(array $aiData, string $task): ?float
+    {
+        $value = $aiData['analysis'][$task]['probability'] ?? null;
+
+        if (!is_int($value) && !is_float($value)) {
+            return null;
+        }
+        return ($value >= 0 && $value <= 1) ? round((float) $value, 4) : null;
+    }
+
+    // ιδιο κριτηριο με το Python (argmax σε δυο κλασεις)
+    public static function detected(?float $probability): ?bool
+    {
+        return $probability === null ? null : $probability > 0.5;
+    }
 }
