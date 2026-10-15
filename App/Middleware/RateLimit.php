@@ -1,4 +1,4 @@
-<?php 
+<?php
 declare(strict_types=1);
 namespace App\Middleware;
 
@@ -12,28 +12,21 @@ class RateLimit {
             return true ;
         }
 
-        $file = self::fileFor();
-        $now =time();
-        $hits =[];
-
-        if (is_file($file)) {
-            $decoded = json_decode((string) file_get_contents($file), true );
-            if (is_array($decoded)) {
-                $hits=$decoded;
+        // μετραμε και ανα IP και ανα λογαριασμο, αρκει ενα να εχει γεμισει
+        $blocked = false;
+        foreach (static::files() as $file) {
+            if (!$this->hit($file)) {
+                $blocked = true;
             }
         }
 
-        $hits= array_values(array_filter(
-            $hits , fn ($t) : bool => ($now -(int) $t) < $this ->decaySec
-        ));
-
-        if (count($hits) >= $this->maxAttempts) {
+        if ($blocked) {
             http_response_code(429);
             $uri= $_SERVER['REQUEST_URI'] ?? '' ;
 
             if (str_contains($uri, '/api')) {
                 header('Content-type: application/json; charset=utf-8');
-                echo json_encode(['success' => false , 'error' =>'Πάρα πολλές προσπάθειες. Προσπαθήστε ξανά αργότερα.'], JSON_UNESCAPED_UNICODE);  
+                echo json_encode(['success' => false , 'error' =>'Πάρα πολλές προσπάθειες. Προσπαθήστε ξανά αργότερα.'], JSON_UNESCAPED_UNICODE);
             }else {
                 header('Content-type: text/html; charset=utf-8');
                 echo '<!doctype html><html lang="el"><head><meta charset="utf-8"><title>429</title></head>
@@ -42,20 +35,14 @@ class RateLimit {
             }
         exit ;
         }
-    
-        $hits[] = $now;
-        $dir=dirname($file);
-        if (!is_dir($dir)) {
-            @mkdir($dir,0775, true);
-        }
-    file_put_contents($file ,json_encode($hits), LOCK_EX);
-    return true ;
+        return true ;
     }
 
     public  static function clear(): void {
-        $file = self ::fileFor();
-        if (is_file($file)) {
-            @unlink($file);
+        foreach (static::files() as $file) {
+            if (is_file($file)) {
+                @unlink($file);
+            }
         }
     }
 
@@ -64,9 +51,54 @@ class RateLimit {
         return $_SERVER['REMOTE_ADDR'] ?? 'unknown';
     }
 
-    private static  function fileFor(): string {
-        $uri= $_SERVER['REQUEST_URI'] ?? '';
-        $key= hash('sha256', static::identity() . '|' . $uri);
+    // καταγραφει μια προσπαθεια, false αν το οριο εχει ηδη γεμισει
+    // διαβασμα και γραψιμο κατω απο το ιδιο lock, για να μην ξεφευγουν ταυτοχρονα αιτηματα
+    private function hit(string $file): bool {
+        $dir = dirname($file);
+        if (!is_dir($dir)) {
+            @mkdir($dir, 0775, true);
+        }
+
+        $fp = @fopen($file, 'c+');
+        if ($fp === false) {
+            return true;
+        }
+        flock($fp, LOCK_EX);
+
+        $now = time();
+        $decoded = json_decode((string) stream_get_contents($fp), true);
+        $hits = array_values(array_filter(
+            is_array($decoded) ? $decoded : [], fn ($t) : bool => ($now - (int) $t) < $this->decaySec
+        ));
+
+        $allowed = count($hits) < $this->maxAttempts;
+        if ($allowed) {
+            $hits[] = $now;
+            ftruncate($fp, 0);
+            rewind($fp);
+            fwrite($fp, json_encode($hits));
+            fflush($fp);
+        }
+
+        flock($fp, LOCK_UN);
+        fclose($fp);
+        return $allowed;
+    }
+
+    private static function files(): array {
+        // μονο το path: αλλιως το /login?x=1, ?x=2... μετραει το καθενα χωριστα
+        $path = rtrim((string) parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH), '/');
+        $files = [self::fileFor(static::identity() . '|' . $path)];
+
+        $email = $_POST['email'] ?? '';
+        if (is_string($email) && trim($email) !== '') {
+            $files[] = self::fileFor('email:' . mb_strtolower(trim($email)) . '|' . $path);
+        }
+        return $files;
+    }
+
+    private static function fileFor(string $identity): string {
+        $key = hash('sha256', $identity);
 
         return BASE_PATH . 'storage' . DIRECTORY_SEPARATOR . 'ratelimit'  . DIRECTORY_SEPARATOR . $key . '.json';
     }

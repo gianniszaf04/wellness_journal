@@ -1,4 +1,5 @@
 Options -Indexes
 RewriteEngine On
-RewriteCond %{REQUEST_FILENAME} !-f 
+# σερβιρεται μονο το public/, ολα τα αλλα (.env, .git, storage...) πανε στο router
+RewriteRule ^public/ - [L]
 RewriteRule ^ public/index.php [QSA,L]
