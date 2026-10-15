@@ -42,6 +42,7 @@ $router->group(['middleware' => [RequireLogin::class, VerifyCsrf::class]], funct
     $router->get('/dashboard',    [DashboardController::class , 'index'] ,      'app.dashboard');
     $router->get('/profile',      [UserController::class,       'showProfile'], 'app.profile');
     $router->middleware([RateLimit::class])->post('/account/delete', [UserController::class, 'deleteAccount'], 'app.account.delete');
+    $router->middleware([RateLimit::class])->post('/account/password', [UserController::class, 'changePassword'], 'app.account.password');
     $router->get('/entry/editor', [EntryController::class,      'showEditor'],  'app.entry.editor');
     $router->get('/entry/history',[EntryController::class,      'history'],     'app.entry.history');
     $router->get('/entry/{id}',   [EntryController::class,      'view'],        'app.entry.view');

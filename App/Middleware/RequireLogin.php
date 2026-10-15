@@ -12,7 +12,7 @@ class RequireLogin {
             session_start();
         }
 
-        // ο λογαριασμος μπορει να απενεργοποιηθηκε ή να ζητηθηκε διαγραφη απο αλλη συσκευη
+        // ο λογαριασμος μπορει να απενεργοποιηθηκε, να ζητηθηκε διαγραφη ή να αλλαξε ο κωδικος απο αλλη συσκευη
         if (isset($_SESSION['user_id']) && !self::isActive((int) $_SESSION['user_id'])) {
             $_SESSION = [];
             session_regenerate_id(true);
@@ -38,6 +38,7 @@ class RequireLogin {
 
         return $user !== null
             && (int) $user['status'] !== 0
-            && empty($user['deletion_requested_at']);
+            && empty($user['deletion_requested_at'])
+            && hash_equals(User::passwordFingerprint((string) $user['password_hash']), (string) ($_SESSION['password_fp'] ?? ''));
     }
 }

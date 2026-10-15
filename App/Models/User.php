@@ -77,6 +77,22 @@ class User {
         return (int) $stmt->fetchColumn() > 0;
     }
 
+    public function updatePassword(int $id, string $password): bool {
+        try {
+            $stmt = $this->db->prepare('UPDATE users SET password_hash = :hash WHERE id = :id');
+            $stmt->execute([':hash' => password_hash($password, PASSWORD_BCRYPT), ':id' => $id]);
+            return $stmt->rowCount() > 0;
+        } catch (\PDOException $e) {
+            error_log('User::updatePassword error: ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    // μπαινει στο session στο login. Αν αλλαξει ο κωδικος, τα sessions με το παλιο αποτυπωμα ακυρωνονται
+    public static function passwordFingerprint(string $passwordHash): string {
+        return substr(hash('sha256', $passwordHash), 0, 32);
+    }
+
     public function requestDeletion(int $id): bool {
         try {
             $stmt = $this->db->prepare(
