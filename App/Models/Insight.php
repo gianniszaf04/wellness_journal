@@ -151,6 +151,17 @@ class Insight {
         return (int) $stmt->fetchColumn();
     }
 
+    public function existsTodayOfType(int $userId, string $type): bool {
+        $stmt = $this->db->prepare(
+            'SELECT 1 FROM insights
+            WHERE user_id = :user_id AND insight_type = :type
+            AND created_at >= CURDATE() AND created_at < CURDATE() + INTERVAL 1 DAY
+            LIMIT 1');
+        $stmt->execute([':user_id' => $userId, ':type' => $type]);
+
+        return $stmt->fetchColumn() !== false;
+    }
+
     public function allForUser(int $userId): array {
         $stmt=$this->db->prepare(
             'SELECT i.id, i.user_id, i.insight_type, i.insight_text,

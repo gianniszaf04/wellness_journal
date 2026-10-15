@@ -52,7 +52,8 @@ class Database
             ];
 
             $this->conn = new PDO($dsn, $this->username, $this->password, $options);
-            $this->conn->exec("SET time_zone = '+00:00' ");
+            // ιδιο offset με την PHP, ωστε CURDATE() και date() να συμφωνουν για το ποια μερα ειναι
+            $this->conn->exec("SET time_zone = '" . (new DateTime())->format('P') . "'");
 
             return $this->conn;
         } catch (PDOException $e) {

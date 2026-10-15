@@ -14,64 +14,66 @@ class EmotionEntityRelation
         $this->db = (new Database())->getConnection();
     }
 
-    public function upsert(int $userId, string $entityName, string $entityType, ?int $dominantEmotionId, ?float $avgScore): bool
+    // ξαναϋπολογιζει τα relations απο τις καταγραφες που υπαρχουν τωρα, ωστε create/edit/delete να μενουν συνεπη
+    // $entities: [['entity_name' => ..., 'entity_type' => ...], ...]
+    public function recalculate(int $userId, array $entities): void
     {
-        $entityName = trim($entityName);
-        $entityType = trim($entityType);
+        $stats = $this->db->prepare(
+            'SELECT COUNT(DISTINCT e.id) AS mentions,
+                AVG(e.sentiment_score) AS avg_score,
+                MAX(e.created_at) AS last_mentioned
+            FROM entry_entities ee
+            JOIN entries e ON e.id = ee.entry_id
+            WHERE e.user_id = :user_id AND ee.entity_name = :name AND ee.entity_type = :type'
+        );
+        // το συχνοτερο συναισθημα, σε ισοπαλια το πιο προσφατο
+        $dominant = $this->db->prepare(
+            'SELECT e.dominant_emotion_id
+            FROM entry_entities ee
+            JOIN entries e ON e.id = ee.entry_id
+            WHERE e.user_id = :user_id AND ee.entity_name = :name AND ee.entity_type = :type
+                AND e.dominant_emotion_id IS NOT NULL
+            GROUP BY e.dominant_emotion_id
+            ORDER BY COUNT(*) DESC, MAX(e.created_at) DESC
+            LIMIT 1'
+        );
+        $save = $this->db->prepare(
+            'INSERT INTO relation_emotion_entity
+            (user_id, entity_name, entity_type, dominant_emotion_id, avg_sentiment_score, mentioned_count, last_mentioned_at)
+            VALUES (:user_id, :name, :type, :emotion_id, :avg_score, :mentions, :last_mentioned)
+            ON DUPLICATE KEY UPDATE dominant_emotion_id = VALUES(dominant_emotion_id),
+                avg_sentiment_score = VALUES(avg_sentiment_score),
+                mentioned_count = VALUES(mentioned_count),
+                last_mentioned_at = VALUES(last_mentioned_at)'
+        );
+        $remove = $this->db->prepare(
+            'DELETE FROM relation_emotion_entity WHERE user_id = :user_id AND entity_name = :name AND entity_type = :type'
+        );
 
-        if ($entityName === '' || strlen($entityName) > 100) {
-            return false;
-        }
+        foreach ($entities as $entity) {
+            $key = [':user_id' => $userId, ':name' => (string) $entity['entity_name'], ':type' => (string) $entity['entity_type']];
 
-        if ($entityType === '' || strlen($entityType) > 50) {
-            return false;
-        }
+            try {
+                $stats->execute($key);
+                $row = $stats->fetch(PDO::FETCH_ASSOC);
 
-        if ($avgScore !== null && ($avgScore < -1.0 || $avgScore > 1.0)) {
-            return false;
-        }
-        try {
-            $stmt = $this->db->prepare(
-                'UPDATE relation_emotion_entity 
-                SET dominant_emotion_id = :emotion_id,
-                avg_sentiment_score = :avg_score,
-                mentioned_count = mentioned_count + 1,
-                last_mentioned_at = NOW()
-                WHERE user_id = :user_id
-                AND entity_name = :name
-                AND entity_type = :type
-                '
-            );
+                if ((int) $row['mentions'] === 0) {
+                    $remove->execute($key);
+                    continue;
+                }
 
-            $stmt->execute([
-                ':emotion_id' => $dominantEmotionId,
-                ':avg_score' => $avgScore,
-                ':user_id' => $userId,
-                ':name' => $entityName,
-                ':type' => $entityType,
-            ]);
+                $dominant->execute($key);
+                $emotionId = $dominant->fetchColumn();
 
-            if ($stmt->rowCount() > 0) {
-                return true;
+                $save->execute($key + [
+                    ':emotion_id' => $emotionId !== false ? (int) $emotionId : null,
+                    ':avg_score' => $row['avg_score'] !== null ? round((float) $row['avg_score'], 4) : null,
+                    ':mentions' => (int) $row['mentions'],
+                    ':last_mentioned' => $row['last_mentioned'],
+                ]);
+            } catch (\PDOException $e) {
+                error_log('EmotionEntityRelation::recalculate error: ' . $e->getMessage());
             }
-
-            $insert = $this->db->prepare(
-                'INSERT INTO relation_emotion_entity
-                (user_id, entity_name, entity_type,  dominant_emotion_id, avg_sentiment_score, mentioned_count)
-                VALUES (:user_id, :name, :type, :emotion_id, :avg_score, 1)
-                '
-            );
-
-            return $insert->execute([
-                ':user_id' => $userId,
-                ':name' => $entityName,
-                ':type' => $entityType,
-                ':emotion_id' => $dominantEmotionId,
-                ':avg_score' => $avgScore,
-            ]);
-        } catch (\PDOException $e) {
-            error_log('EmotionEntityRelation::upsert error: ' . $e->getMessage());
-            return false;
         }
     }
 
@@ -155,17 +157,17 @@ class EmotionEntityRelation
         return $stmt->execute([':id' => $id, ':user_id' => $userId]);
     }
 
-    public function findTendsInRange(int $userId, string $fromDate, string $toDate): array
+    public function findTrendsInRange(int $userId, string $fromDate, string $toDate): array
     {
         $stmt = $this->db->prepare(
-            'SELECT ree.entity_name, ree.entity_type, 
+            'SELECT ree.entity_name, ree.entity_type,
                     COUNT(ee.id) AS total_mentions,
                     AVG(e.sentiment_score) AS avg_sentiment,
                     ree.dominant_emotion_id,
                     em.name AS emotion_name, em.emoji AS emotion_emoji
              FROM relation_emotion_entity ree
              JOIN entry_entities ee ON ee.entity_name = ree.entity_name AND ee.entity_type = ree.entity_type
-             JOIN entries e ON e.id = ee.entry_id
+             JOIN entries e ON e.id = ee.entry_id AND e.user_id = ree.user_id
              LEFT JOIN emotions em ON em.id = ree.dominant_emotion_id
              WHERE ree.user_id = :user_id
                AND e.entry_date BETWEEN :from_date AND :to_date
@@ -187,21 +189,27 @@ class EmotionEntityRelation
 
         $stmt = $this->db->prepare(
             'SELECT e.id, e.name, e.emoji, e.color,
-                AVG(ree.avg_sentiment_score) AS evg_sentiment,
+                AVG(ree.avg_sentiment_score) AS avg_sentiment,
                 COUNT(DISTINCT ee.entry_id) AS mention_count
             FROM emotions e
             LEFT JOIN relation_emotion_entity ree on ree.dominant_emotion_id = e.id
-            AND ree.user_id = :user_id
-            AND ree.entity_name = :name
-            LEFT JOIN entry_entities ee ON ee.entity_name = :name
-            AND  ee.entry_id IN ( SELECT e2.id FROM entries e2 WHERE e2.user_id = :user_id AND e2.dominant_emotion_id = e.id)
+            AND ree.user_id = :user_id_rel
+            AND ree.entity_name = :name_rel
+            LEFT JOIN entry_entities ee ON ee.entity_name = :name_entries
+            AND  ee.entry_id IN ( SELECT e2.id FROM entries e2 WHERE e2.user_id = :user_id_entries AND e2.dominant_emotion_id = e.id)
             WHERE e.is_active = 1
             GROUP BY e.id, e.name, e.emoji, e.color
             ORDER BY mention_count DESC
             '
         );
 
-        $stmt->execute([':user_id' => $userId, ':name' => $entityName,]);
+        // με EMULATE_PREPARES=false καθε placeholder μπαινει μονο μια φορα
+        $stmt->execute([
+            ':user_id_rel' => $userId,
+            ':name_rel' => $entityName,
+            ':name_entries' => $entityName,
+            ':user_id_entries' => $userId,
+        ]);
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }

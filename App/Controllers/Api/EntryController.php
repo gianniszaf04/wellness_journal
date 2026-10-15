@@ -18,6 +18,7 @@ class EntryController
     private Entry $entryModel;
     // προεπιλογη αν το SENTIMENT_WARNING_THRESHOLD λειπει ή ειναι λαθος στο .env
     private const DEFAULT_WARNING_THRESHOLD = -0.5;
+    private const MAX_BODY_LENGTH = 10000;
 
     public function __construct()
     {
@@ -32,9 +33,7 @@ class EntryController
         $body = trim((string) $request->input('body', ''));
         $entryDate = trim((string) $request->input('entry_date', ''));
 
-        if ($body === '') {
-            json_response(['success' => false, 'error' => 'Το κείμενο της καταγραφής είναι υποχρεωτικό.'], 422);
-        }
+        $this->validateBody($body);
 
         if ($entryDate === '' || !$this->isValidDate($entryDate)) {
             $entryDate = date('Y-m-d');
@@ -45,12 +44,14 @@ class EntryController
             json_response(['success' => false, 'error' => 'Αποτυχία δημιουργίας καταγραφής.'], 500);
         }
 
-        [$sentimentScore, $dominantEmotionId, $emotionConfidence] =
+        [$sentimentScore, $dominantEmotionId, $emotionConfidence, $aiAvailable] =
             $this->analyzeAndPersist($id, $userId, $body, $entryDate, false);
 
         try {
-            if ($sentimentScore !== null && $sentimentScore < $this->warningThreshold()) {
-                $insightModel = new Insight();
+            $insightModel = new Insight();
+            // ενα warning την ημερα αρκει, αλλιως γεμιζει σε καθε αρνητικη καταγραφη
+            if ($sentimentScore !== null && $sentimentScore < $this->warningThreshold()
+                && !$insightModel->existsTodayOfType($userId, Insight::TYPE_WARNING)) {
                 $insightModel->create(
                     $userId,
                     Insight::TYPE_WARNING,
@@ -81,17 +82,26 @@ class EntryController
         }
 
         $entry = $this->entryModel->findByIdForUser($id, $userId);
-        json_response(['success' => true, 'data' => $entry], 201);
+        json_response(['success' => true, 'data' => $entry, 'ai_available' => $aiAvailable], 201);
+    }
+
+    // ιδιο οριο με το AI service, αλλιως η καταγραφη σωζεται χωρις αναλυση
+    private function validateBody(string $body): void
+    {
+        if ($body === '') {
+            json_response(['success' => false, 'error' => 'Το κείμενο της καταγραφής είναι υποχρεωτικό.'], 422);
+        }
+        if (mb_strlen($body) > self::MAX_BODY_LENGTH) {
+            json_response(['success' => false, 'error' => 'Το κείμενο ξεπερνά τους ' . self::MAX_BODY_LENGTH . ' χαρακτήρες.'], 422);
+        }
     }
 
     /**
      * Καλει το AI service και κανει persist: sentiment/emotion στην εγγραφη,
-     * (επανα)δημιουργια entities και recalculate του daily summary.
-     * Επιστρεφει [?float sentimentScore, ?int dominantEmotionId, ?float emotionConfidence].
+     * (επανα)δημιουργια entities, relations και daily summary.
+     * Επιστρεφει [?float sentimentScore, ?int dominantEmotionId, ?float emotionConfidence, bool aiAvailable].
      *
      * @param bool $replaceEntities Σε edit (true): σβηνει & ξαναγραφει τα entities.
-     *        Τα relation_emotion_entity δεν ξαναγραφονται σε edit για να μην γινει
-     *        διπλη προσμετρηση (mentioned_count) - μενουν οπως ηταν.
      */
     private function analyzeAndPersist(int $id, int $userId, string $body, string $entryDate, bool $replaceEntities): array
     {
@@ -99,6 +109,7 @@ class EntryController
         $dominantEmotionId = null;
         $emotionConfidence = null;
         $entities = [];
+        $aiData = null;
 
         try {
             $aiData = (new AiClient())->analyze($body);
@@ -124,7 +135,8 @@ class EntryController
             error_log('AI Service Error: ' . $e->getMessage());
         }
 
-        if ($sentimentScore !== null || $dominantEmotionId !== null) {
+        // σε edit γραφουμε παντα, ωστε αν το AI ειναι κατω να μη μεινει η αναλυση του παλιου κειμενου
+        if ($replaceEntities || $sentimentScore !== null || $dominantEmotionId !== null) {
             try {
                 $db = (new \Database())->getConnection();
                 $stmt = $db->prepare(
@@ -146,8 +158,10 @@ class EntryController
         if ($replaceEntities || !empty($entities)) {
             try {
                 $entryEntityModel = new EntryEntity();
+                $previous = [];
 
                 if ($replaceEntities) {
+                    $previous = $entryEntityModel->findForEntry($id);
                     $entryEntityModel->deleteForEntry($id);
                 }
 
@@ -161,22 +175,13 @@ class EntryController
                     }
                 }
 
-                if (!empty($entitiesToInsert)) {
-                    $entryEntityModel->createBatch($id, $entitiesToInsert);
+                $entryEntityModel->createBatch($id, $entitiesToInsert);
 
-                    if (!$replaceEntities) {
-                        $relationModel = new EmotionEntityRelation();
-                        foreach ($entitiesToInsert as $entity) {
-                            $relationModel->upsert(
-                                $userId,
-                                $entity['name'],
-                                $entity['type'],
-                                $dominantEmotionId,
-                                $sentimentScore
-                            );
-                        }
-                    }
-                }
+                // και τα παλια entities, για να βγει απο τα relations ο,τι δεν αναφερεται πια
+                (new EmotionEntityRelation())->recalculate(
+                    $userId,
+                    array_merge($previous, $entryEntityModel->findForEntry($id))
+                );
             } catch (\Exception $e) {
                 error_log('Entity processing error: ' . $e->getMessage());
             }
@@ -188,7 +193,7 @@ class EntryController
             error_log('Daily summary recalculation error: ' . $e->getMessage());
         }
 
-        return [$sentimentScore, $dominantEmotionId, $emotionConfidence];
+        return [$sentimentScore, $dominantEmotionId, $emotionConfidence, $aiData !== null];
     }
 
     private function warningThreshold(): float
@@ -246,19 +251,17 @@ class EntryController
         }
 
         $body = trim((string) $request->input('body', ''));
-        if ($body === '') {
-            json_response(['success' => false, 'error' => 'Το κείμενο της καταγραφής είναι υποχρεωτικό.'], 422);
-        }
+        $this->validateBody($body);
 
         $this->entryModel->update($entryId, $userId, $body);
 
         // Ξανατρεχουμε AI ωστε sentiment/emotion/entities/summary να μην μεινουν stale απο το παλιο κειμενο
         $entryDate = (string) ($existing['entry_date'] ?? date('Y-m-d'));
-        $this->analyzeAndPersist($entryId, $userId, $body, $entryDate, true);
+        [, , , $aiAvailable] = $this->analyzeAndPersist($entryId, $userId, $body, $entryDate, true);
 
         $entry = $this->entryModel->findByIdForUser($entryId, $userId);
 
-        json_response(['success' => true, 'data' => $entry]);
+        json_response(['success' => true, 'data' => $entry, 'ai_available' => $aiAvailable]);
     }
 
     public function destroy(string $id): void
@@ -266,8 +269,9 @@ class EntryController
         $userId = (int) current_user_id();
         $entryId = (int) $id;
 
-        // Κραταμε το entry_date πριν τη διαγραφη για να ξαναυπολογισουμε το daily summary
+        // Κραταμε entry_date και entities πριν τη διαγραφη για να ξαναυπολογισουμε summary και relations
         $existing = $this->entryModel->findByIdForUser($entryId, $userId);
+        $entities = $existing !== null ? (new EntryEntity())->findForEntry($entryId) : [];
 
         $deleted = $this->entryModel->delete($entryId, $userId);
 
@@ -280,6 +284,11 @@ class EntryController
                 (new DailySummary())->recalculate($userId, (string) $existing['entry_date']);
             } catch (\Exception $e) {
                 error_log('Daily summary recalculation error: ' . $e->getMessage());
+            }
+            try {
+                (new EmotionEntityRelation())->recalculate($userId, $entities);
+            } catch (\Exception $e) {
+                error_log('Relation recalculation error: ' . $e->getMessage());
             }
         }
 
