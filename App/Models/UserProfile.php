@@ -24,7 +24,7 @@ class UserProfile {
         }
         try {
             $stmt= $this->db->prepare(
-                'SELECT id, user_id, preferences, theme_background, sound, updated_at
+                'SELECT user_id, preferences, theme_background, sound, updated_at
                 FROM user_profiles
                 WHERE user_id = :user_id
                 LIMIT 1');
