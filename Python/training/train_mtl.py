@@ -11,7 +11,7 @@ from transformers import AutoTokenizer
 
 # Επιτρεπουμε import απο τον γονικο φακελο (model_architecture, labels)
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from model_architecture import WellnessMTLModel, MODEL_NAME
+from model_architecture import WellnessMTLModel, MODEL_NAME, MODEL_REVISION
 from labels import TASKS, LABEL_SETS                          
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -77,7 +77,7 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"[*] Device: {device}")
 
-    tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+    tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, revision=MODEL_REVISION)
     df = pd.read_csv(DATA_PATH)
 
     # train/val split (με fallback αν το dataset ειναι πολυ μικρο)

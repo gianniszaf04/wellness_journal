@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field
 from transformers import AutoTokenizer
 
 
-from model_architecture import WellnessMTLModel, MODEL_NAME
+from model_architecture import WellnessMTLModel, MODEL_NAME, MODEL_REVISION
 from ner_service import extract_entities, load_ner
 from labels import (
     SENTIMENT_LABELS,
@@ -44,7 +44,7 @@ _verify_log_lock = threading.Lock()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    ml["tokenizer"] = AutoTokenizer.from_pretrained(MODEL_NAME)
+    ml["tokenizer"] = AutoTokenizer.from_pretrained(MODEL_NAME, revision=MODEL_REVISION)
     model = WellnessMTLModel().to(device)
     if os.path.exists(WEIGHTS_PATH):
         model.load_state_dict(torch.load(WEIGHTS_PATH, map_location=device, weights_only=True))

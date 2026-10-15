@@ -3,7 +3,30 @@
     "allow": [
       "Bash(git add *)",
       "Bash(git commit *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(curl -s -m 15 \"https://huggingface.co/api/models/nlpaueb/bert-base-greek-uncased-v1?blobs=true\")",
+      "Bash(/usr/bin/python3 -c ' *)",
+      "Bash(curl -s -m 15 \"https://huggingface.co/api/organizations/nlpaueb/overview\")",
+      "Bash(curl -s -m 15 \"https://huggingface.co/api/models?author=nlpaueb&limit=50\")",
+      "Bash(/usr/bin/python3 -c 'import json,sys; print\\(\"models by nlpaueb:\", [m[\"id\"] for m in json.load\\(sys.stdin\\)]\\)')",
+      "Bash(curl -s -m 15 https://api.github.com/repos/nlpaueb/greek-bert)",
+      "Bash(/usr/bin/python3 -c 'import json,sys; d=json.load\\(sys.stdin\\); print\\(\"repo:\", d.get\\(\"full_name\"\\), \"| owner type:\", d.get\\(\"owner\",{}\\).get\\(\"type\"\\), \"| stars:\", d.get\\(\"stargazers_count\"\\), \"| created:\", \\(d.get\\(\"created_at\"\\) or \"\"\\)[:10], \"| homepage:\", d.get\\(\"homepage\"\\)\\)')",
+      "Bash(curl -s -m 15 https://api.github.com/orgs/nlpaueb)",
+      "Bash(/usr/bin/python3 -c 'import json,sys; d=json.load\\(sys.stdin\\); print\\(\"org:\", d.get\\(\"name\"\\), \"|\", d.get\\(\"blog\"\\), \"|\", d.get\\(\"location\"\\), \"|\", d.get\\(\"description\"\\)\\)')",
+      "Bash(curl -s -m 15 https://raw.githubusercontent.com/nlpaueb/greek-bert/master/README.md)",
+      "Bash(sort -u -t: -k2)",
+      "Bash(curl -s -m 15 \"https://export.arxiv.org/api/query?search_query=ti:%22GREEK-BERT%22&max_results=3\")",
+      "Bash(curl -s -m 15 -L http://nlp.cs.aueb.gr/)",
+      "Bash(grep -oiE \"[^<>]{0,60}greek[- ]bert[^<>]{0,60}\")",
+      "Bash(curl -s -m 15 \"https://huggingface.co/api/models/nlpaueb/bert-base-greek-uncased-v1/discussions\")",
+      "Bash(/Applications/XAMPP/xamppfiles/htdocs/wellness_journal/Python/.venv/bin/python -c \"import torch, transformers; print\\('torch', torch.__version__, '| transformers', transformers.__version__\\)\")",
+      "Bash(LC_ALL=C grep -oiE \".{0,80}greek.?bert.{0,80}\")",
+      "Bash(curl -s -m 15 \"https://huggingface.co/api/models/nlpaueb/bert-base-greek-uncased-v1/discussions/1\")",
+      "Bash(curl -s -m 15 \"https://huggingface.co/api/models/nlpaueb/bert-base-greek-uncased-v1/tree/refs%2Fpr%2F1\")",
+      "Bash(/usr/bin/python3 -c 'import json,sys; [print\\(\"   \", f[\"path\"], round\\(f.get\\(\"size\",0\\)/1e6,1\\),\"MB\"\\) for f in json.load\\(sys.stdin\\) if f[\"path\"].endswith\\(\".safetensors\"\\)]')",
+      "Bash(sed -i '' -e 's/^from model_architecture import WellnessMTLModel, MODEL_NAME$/from model_architecture import WellnessMTLModel, MODEL_NAME, MODEL_REVISION/' -e 's/AutoTokenizer.from_pretrained\\(MODEL_NAME\\)/AutoTokenizer.from_pretrained\\(MODEL_NAME, revision=MODEL_REVISION\\)/' main.py training/train_mtl.py)",
+      "Bash(.venv/bin/python -m py_compile main.py model_architecture.py training/train_mtl.py)",
+      "Bash(curl -s -m 15 \"https://huggingface.co/api/models/nlpaueb/bert-base-greek-uncased-v1/tree/b1092b2d17c5732186573ce8e76a01f45be927f0\")"
     ]
   }
 }

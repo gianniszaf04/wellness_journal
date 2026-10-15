@@ -5,13 +5,15 @@ from transformers import AutoModel
 from labels import HEAD_DIMS
 
 MODEL_NAME = "nlpaueb/bert-base-greek-uncased-v1"
+# κλειδωμενη εκδοση με model.safetensors (μετατροπη του Hugging Face, PR #1)
+MODEL_REVISION = "b1092b2d17c5732186573ce8e76a01f45be927f0"
 
 
 class WellnessMTLModel(nn.Module): 
     def  __init__(self, model_name: str = MODEL_NAME, dropout: float = 0.3): 
 
         super().__init__()
-        self.bert = AutoModel.from_pretrained(model_name)
+        self.bert = AutoModel.from_pretrained(model_name, revision=MODEL_REVISION, use_safetensors=True)
 
         hidden = self.bert.config.hidden_size
 
