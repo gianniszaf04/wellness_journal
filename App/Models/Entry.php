@@ -71,7 +71,9 @@ class Entry{
     public function delete(int $id, int $userId):bool {
         $stmt = $this->db->prepare(
             'DELETE FROM entries WHERE id = :id AND user_id = :user_id');
-            return $stmt->execute([':id' => $id ,':user_id' => $userId]);
+            $stmt->execute([':id' => $id ,':user_id' => $userId]);
+            // true μονο αν σβηστηκε πραγματικα γραμμη (αλλιως δεν υπαρχει ή ανηκει σε αλλον)
+            return $stmt->rowCount() > 0;
     }
 
     public function allForUser(int $userId, int $limit = 50, int $offset = 0) : array {
