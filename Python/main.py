@@ -8,7 +8,6 @@ import torch
 import torch.nn.functional as F
 from dotenv import load_dotenv
 from fastapi import FastAPI, BackgroundTasks
-from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from transformers import AutoTokenizer
 
@@ -30,6 +29,8 @@ WEIGHTS_PATH = os.getenv("WEIGHTS_PATH", "mtl_model.pt")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 VERIFY_LOG = os.getenv("VERIFY_LOG", os.path.join("..", "storage", "ai_verification.jsonl"))
 NER_ENABLED = os.getenv("NER_ENABLED", "1") != "0"
+# Επαληθευση μεσω OpenAI μονο οταν ενεργοποιηθει ρητα (default: κλειστη)
+OPENAI_VERIFY = os.getenv("OPENAI_VERIFY", "0") == "1"
 MAX_LEN = 128
 
 
@@ -58,13 +59,8 @@ async def lifespan(app: FastAPI):
     yield
     ml.clear()
 
+# Χωρις CORS: το service το καλει μονο το PHP (server -> server), οχι ο browser
 app = FastAPI(title="Wellness MTL Service", version="1.1" , lifespan=lifespan)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 class AnalyzeRequest(BaseModel):
     text: str = Field(..., min_length=1, max_length=10000)
@@ -168,6 +164,7 @@ def health():
         "status": "ok",
         "weights_loaded": os.path.exists(WEIGHTS_PATH),
         "ner_enabled": NER_ENABLED,
+        "openai_verify": OPENAI_VERIFY,
         "device": str(device),
     }
 
@@ -178,7 +175,8 @@ def analyze(req: AnalyzeRequest, background_tasks: BackgroundTasks):
 
     entities = extract_entities(req.text) if NER_ENABLED else []
 
-    background_tasks.add_task(verify_with_openai, req.text, result)
+    if OPENAI_VERIFY:
+        background_tasks.add_task(verify_with_openai, req.text, result)
     return {
         "success": True,
         "sentiment_score": result["sentiment_score"],
@@ -187,3 +185,9 @@ def analyze(req: AnalyzeRequest, background_tasks: BackgroundTasks):
         "analysis": result["tasks"],  
         "model_version": "mtl-greekbert-v1",
     }
+
+# Εκκινηση: python main.py -> ακουει μονο τοπικα (127.0.0.1), ποτε σε ολο το δικτυο
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run(app, host="127.0.0.1", port=8000)
