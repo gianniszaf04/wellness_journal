@@ -5,6 +5,7 @@ namespace App\Controllers;
 use App\Models\User;
 use App\Models\UserProfile;
 use App\Core\Request;
+use App\Services\UserDataExport;
 
 class UserController {
     private const MIN_PASSWORD_LENGTH = 8;
@@ -47,6 +48,9 @@ class UserController {
             <li><strong>Θέμα:</strong> ' . e((string) ($profile['theme_background'] ?? 'default_theme')) . '</li>
             <li><strong>Ηχος:</strong> ' . e((string) ($profile['sound'] ?? 'none')) . '</li>
         </ul>
+        <hr>
+        <h2>Τα δεδομενα μου</h2>
+        <p><a href="' . e(url('account/export')) . '">Ληψη ολων των δεδομενων μου (JSON)</a></p>
         <hr>
         <h2>Αλλαγη κωδικου</h2>
         ' . $passwordMessage . '
@@ -98,6 +102,24 @@ class UserController {
         $this->flash('info', 'Ο λογαριασμός σου θα διαγραφεί οριστικά στις ' . $dateText
             . '. Αν αλλάξεις γνώμη, συνδέσου μέχρι τότε για να τον επαναφέρεις.');
         redirect('/login');
+    }
+
+    // GET /account/export -> ληψη ολων των δεδομενων του χρηστη σε JSON
+    public function exportData(): void {
+        $userId = (int) current_user_id();
+        $json = json_encode((new UserDataExport())->forUser($userId), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
+        if ($json === false) {
+            error_log('UserController::exportData json error: ' . json_last_error_msg());
+            http_response_code(500);
+            echo 'Η εξαγωγή απέτυχε.';
+            return;
+        }
+
+        header('Content-Type: application/json; charset=utf-8');
+        header('Content-Disposition: attachment; filename="wellness-journal-' . date('Y-m-d') . '.json"');
+        header('Cache-Control: no-store');
+        echo $json;
     }
 
     public function changePassword(): void {
