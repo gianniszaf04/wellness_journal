@@ -6,6 +6,9 @@ use Database;
 use PDO;
 
 class User {
+    // μετα απο τοσες μερες ο λογαριασμος σβηνεται οριστικα
+    public const DELETION_GRACE_DAYS = 30;
+
     private PDO $db;
 
     public function __construct() {
@@ -72,6 +75,61 @@ class User {
         $stmt->execute([':username' => trim($username)]);
 
         return (int) $stmt->fetchColumn() > 0;
+    }
+
+    public function requestDeletion(int $id): bool {
+        try {
+            $stmt = $this->db->prepare(
+                'UPDATE users SET deletion_requested_at = NOW()
+                WHERE id = :id AND deletion_requested_at IS NULL');
+            $stmt->execute([':id' => $id]);
+            return $stmt->rowCount() > 0;
+        } catch (\PDOException $e) {
+            error_log('User::requestDeletion error: ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    public function cancelDeletion(int $id): bool {
+        try {
+            // μονο αν δεν εχουν περασει οι μερες αναμονης
+            $stmt = $this->db->prepare(
+                'UPDATE users SET deletion_requested_at = NULL
+                WHERE id = :id AND deletion_requested_at IS NOT NULL
+                AND deletion_requested_at > NOW() - INTERVAL ' . self::DELETION_GRACE_DAYS . ' DAY');
+            $stmt->execute([':id' => $id]);
+            return $stmt->rowCount() > 0;
+        } catch (\PDOException $e) {
+            error_log('User::cancelDeletion error: ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    // οριστικη διαγραφη οσων ζητησαν διαγραφη πριν απο DELETION_GRACE_DAYS μερες
+    // (τα δεδομενα τους σβηνονται μεσω ON DELETE CASCADE). Επιστρεφει ποσους εσβησε.
+    public function purgeExpiredDeletions(): int {
+        try {
+            $stmt = $this->db->prepare(
+                'DELETE FROM users
+                WHERE deletion_requested_at IS NOT NULL
+                AND deletion_requested_at <= NOW() - INTERVAL ' . self::DELETION_GRACE_DAYS . ' DAY');
+            $stmt->execute();
+            return $stmt->rowCount();
+        } catch (\PDOException $e) {
+            error_log('User::purgeExpiredDeletions error: ' . $e->getMessage());
+            return 0;
+        }
+    }
+
+    // ημερομηνια οριστικης διαγραφης (Y-m-d) ή null αν δεν εχει ζητηθει διαγραφη
+    public function deletionDate(int $id): ?string {
+        $stmt = $this->db->prepare(
+            'SELECT DATE(DATE_ADD(deletion_requested_at, INTERVAL ' . self::DELETION_GRACE_DAYS . ' DAY))
+            FROM users WHERE id = :id AND deletion_requested_at IS NOT NULL');
+        $stmt->execute([':id' => $id]);
+        $date = $stmt->fetchColumn();
+
+        return $date !== false ? (string) $date : null;
     }
 
     public function updateStatus(int $id, int $status): bool {

@@ -26,6 +26,9 @@ $router-> group(['middleware' => [RequireGuest::class, VerifyCsrf::class]], func
     $router->middleware([RateLimit::class])->post('/login',   [AuthController::class , 'login' ], 'auth.login.attempt');
     $router->get('/register', [AuthController::class,'showRegisterForm'], 'auth.register.form');
     $router->middleware([RateLimit::class])->post('/register',[AuthController::class,'register'],  'auth.register.attempt');
+    $router->get('/account/restore',          [AuthController::class, 'showRestore'],   'auth.restore.form');
+    $router->post('/account/restore',         [AuthController::class, 'restore'],       'auth.restore');
+    $router->post('/account/restore/cancel',  [AuthController::class, 'cancelRestore'], 'auth.restore.cancel');
 });
 //log in
 $router->group(['middleware' => [RequireLogin::class, VerifyCsrf::class]], function (Router $router) : void {
@@ -34,6 +37,7 @@ $router->group(['middleware' => [RequireLogin::class, VerifyCsrf::class]], funct
 
     $router->get('/dashboard',    [DashboardController::class , 'index'] ,      'app.dashboard');
     $router->get('/profile',      [UserController::class,       'showProfile'], 'app.profile');
+    $router->middleware([RateLimit::class])->post('/account/delete', [UserController::class, 'deleteAccount'], 'app.account.delete');
     $router->get('/entry/editor', [EntryController::class,      'showEditor'],  'app.entry.editor');
     $router->get('/entry/history',[EntryController::class,      'history'],     'app.entry.history');
     $router->get('/entry/{id}',   [EntryController::class,      'view'],        'app.entry.view');

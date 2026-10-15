@@ -6,6 +6,9 @@ use App\Models\User;
 use App\Core\Request;
 
 class AuthController {
+    // ποσα δευτερολεπτα εχει ο χρηστης να επιλεξει επαναφορα μετα το login
+    private const RESTORE_WINDOW_SEC = 600;
+
     private  User $userModel;
 
     public function __construct() {
@@ -13,12 +16,13 @@ class AuthController {
     }
     public function showLoginForm(): void {
         $error =$this->pullError();
-        
+        $info = $this->pullInfo();
+
         echo '<!doctype html>
         <html lang="el"><head><meta charset="utf-8"><title>Συνδεση</title></head>
         <body>
             <h1>Συνδεση</h1>
-            ' . $error . '
+            ' . $info . $error . '
             <form method="POST"  action= "'  .url('login') . '" > ' . csrf_field() . '
                 <input type="email" name="email" placeholder="Email" required><br>
                 <input type="password" name="password" placeholder="Κωδικος" required><br>
@@ -82,6 +86,9 @@ class AuthController {
             return;
         }
 
+        // ελευθερωνει email/username λογαριασμων που εληξαν
+        $this->userModel->purgeExpiredDeletions();
+
         if($this->userModel->emailExists($email)) {
             $this->redirectWithError('/register','Το email χρησιμοποιείται ήδη');
             return;
@@ -110,6 +117,9 @@ class AuthController {
             return;
         }
 
+        // πρωτα σβηνουμε οσους ληξαν, ωστε να μη γινεται επαναφορα μετα τις 30 μερες
+        $this->userModel->purgeExpiredDeletions();
+
         $user = $this->userModel->findDbEmail($email);
         if($user === null || !password_verify($password, $user['password_hash'])) {
             $this->redirectWithError('/login' , 'Λαθος email ή κωδικός');
@@ -126,13 +136,92 @@ class AuthController {
             session_start();
         }
 
+        // λογαριασμος σε αναμονη διαγραφης: δεν συνδεεται, ρωταμε πρωτα αν θελει επαναφορα
+        if (!empty($user['deletion_requested_at'])) {
+            session_regenerate_id(true);
+            $_SESSION['restore_user_id'] = (int) $user['id'];
+            $_SESSION['restore_until'] = time() + self::RESTORE_WINDOW_SEC;
+            \App\Middleware\RateLimit::clear();
+            redirect('/account/restore');
+        }
+
+        $this->loginUser($user);
+        redirect('/dashboard');
+    }
+
+    public function showRestore(): void {
+        $userId = $this->pendingRestoreUserId();
+        $date = $userId !== null ? $this->userModel->deletionDate($userId) : null;
+
+        if ($date === null) {
+            redirect('/login');
+        }
+
+        echo '<!doctype html>
+        <html lang="el"><head><meta charset="utf-8"><title>Επαναφορα λογαριασμου</title></head>
+        <body>
+            <h1>Ο λογαριασμος σου ειναι προγραμματισμενος για διαγραφη</h1>
+            <p>Ζητησες διαγραφη του λογαριασμου σου. Θα σβηστει οριστικα, μαζι με ολες τις καταγραφες σου,
+            στις <strong>' . e(date('d/m/Y', strtotime($date))) . '</strong>.</p>
+            <p>Θελεις να τον επαναφερεις;</p>
+            <form method="POST" action="' . e(url('account/restore')) . '">' . csrf_field() . '
+                <button type="submit">Επαναφορα λογαριασμου</button>
+            </form>
+            <form method="POST" action="' . e(url('account/restore/cancel')) . '">' . csrf_field() . '
+                <button type="submit">Οχι, συνεχισε τη διαγραφη</button>
+            </form>
+        </body></html>';
+    }
+
+    public function restore(): void {
+        $userId = $this->pendingRestoreUserId();
+        $user = $userId !== null ? $this->userModel->findById($userId) : null;
+
+        if ($user === null || !$this->userModel->cancelDeletion($userId)) {
+            $this->clearPendingRestore();
+            $this->redirectWithError('/login', 'Η επαναφορά δεν ολοκληρώθηκε. Συνδέσου ξανά.');
+            return;
+        }
+
+        $this->clearPendingRestore();
+        $this->loginUser($user);
+        redirect('/dashboard');
+    }
+
+    public function cancelRestore(): void {
+        $userId = $this->pendingRestoreUserId();
+        $date = $userId !== null ? $this->userModel->deletionDate($userId) : null;
+        $this->clearPendingRestore();
+
+        if ($date !== null) {
+            $_SESSION['info'] = 'Η διαγραφή συνεχίζεται. Ο λογαριασμός σου θα διαγραφεί οριστικά στις '
+                . date('d/m/Y', strtotime($date)) . '.';
+        }
+        redirect('/login');
+    }
+
+    private function loginUser(array $user): void {
         session_regenerate_id(true);
         $_SESSION['user_id'] =$user['id'];
         $_SESSION['username'] = $user['username'];
 
         \App\Middleware\RateLimit::clear();
+    }
 
-        redirect('/dashboard');
+    // ο χρηστης που εδωσε σωστο κωδικο αλλα ο λογαριασμος του περιμενει διαγραφη (ισχυει για λιγα λεπτα)
+    private function pendingRestoreUserId(): ?int {
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+        if (!isset($_SESSION['restore_user_id'], $_SESSION['restore_until']) || time() > (int) $_SESSION['restore_until']) {
+            $this->clearPendingRestore();
+            return null;
+        }
+        return (int) $_SESSION['restore_user_id'];
+    }
+
+    private function clearPendingRestore(): void {
+        unset($_SESSION['restore_user_id'], $_SESSION['restore_until']);
     }
 
     public function logout(): void {
@@ -176,6 +265,15 @@ class AuthController {
         $error = $_SESSION['error'] ?? '';
         unset($_SESSION['error']);
         return $error !== '' ? '<p style="color:red;">' . e($error) . '</p>' : '';
+    }
+
+    private function pullInfo(): string {
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+        $info = $_SESSION['info'] ?? '';
+        unset($_SESSION['info']);
+        return $info !== '' ? '<p style="color:green;">' . e($info) . '</p>' : '';
     }
     
 }

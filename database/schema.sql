@@ -22,6 +22,7 @@ email VARCHAR(254) NOT NULL,
 processed_email VARCHAR(254) GENERATED ALWAYS AS (LOWER(TRIM(email))) STORED,
 password_hash VARCHAR(255) NOT NULL,
 status TINYINT UNSIGNED NOT NULL DEFAULT 1,
+deletion_requested_at TIMESTAMP NULL DEFAULT NULL, -- ποτε ζητηθηκε διαγραφη, οριστικη διαγραφη μετα απο 30 ημερες
 created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
@@ -31,6 +32,8 @@ CONSTRAINT check_status CHECK ( status IN (0,1)),
 CONSTRAINT check_username CHECK (CHAR_LENGTH(TRIM(username))>0),
 CONSTRAINT check_email CHECK (CHAR_LENGTH(TRIM(email))>0)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE INDEX idx_users_deletion ON users(deletion_requested_at);
 
 CREATE TABLE IF NOT EXISTS  user_profiles(
 user_id BIGINT UNSIGNED PRIMARY KEY,
