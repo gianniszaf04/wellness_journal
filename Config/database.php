@@ -11,7 +11,8 @@ class Database
     private string $dbname;
     private string $username;
     private string $password;
-    private ?PDO $conn = null;
+    // ενα connection για ολο το request, ολα τα models το μοιραζονται
+    private static ?PDO $conn = null;
 
     public function __construct()
     {
@@ -38,8 +39,8 @@ class Database
     public function getConnection(): PDO
     {
 
-        if ($this->conn instanceof PDO) {
-            return $this->conn;
+        if (self::$conn instanceof PDO) {
+            return self::$conn;
         }
 
         try {
@@ -51,11 +52,11 @@ class Database
                 PDO::ATTR_EMULATE_PREPARES => false,
             ];
 
-            $this->conn = new PDO($dsn, $this->username, $this->password, $options);
+            self::$conn = new PDO($dsn, $this->username, $this->password, $options);
             // ιδιο offset με την PHP, ωστε CURDATE() και date() να συμφωνουν για το ποια μερα ειναι
-            $this->conn->exec("SET time_zone = '" . (new DateTime())->format('P') . "'");
+            self::$conn->exec("SET time_zone = '" . (new DateTime())->format('P') . "'");
 
-            return $this->conn;
+            return self::$conn;
         } catch (PDOException $e) {
             error_log('Database connection failed: ' . $e->getMessage());
             throw new RuntimeException('Database connection error');
