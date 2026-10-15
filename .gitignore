@@ -5,3 +5,4 @@ storage/ratelimit/
 storage/*.jsonl
 *.pt
 .DS_Store
+.claude/settings.local.json
