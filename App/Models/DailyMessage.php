@@ -25,7 +25,14 @@ class DailyMessage{
             ]);
     }
 
+    // false αν δεν υπαρχει ή ανηκει σε αλλον
     public function markSeen(int $id, int $userId): bool {
+        $check = $this->db->prepare('SELECT 1 FROM daily_messages WHERE id = :id AND user_id = :user_id');
+        $check->execute([':id' => $id, ':user_id' => $userId]);
+        if ($check->fetchColumn() === false) {
+            return false;
+        }
+
         $stmt=$this->db->prepare(
         'UPDATE daily_messages SET user_saw_message = 1, shown_at = NOW()
         WHERE id = :id AND user_id = :user_id

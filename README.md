@@ -31,6 +31,17 @@
    MIGRATE_DB_USER=root MIGRATE_DB_PASS= php database/migrate.php            (τρέχει τα νέα)
    MIGRATE_DB_USER=root MIGRATE_DB_PASS= php database/migrate.php --status   (τι έχει τρέξει)
 
+ == API (JSON, μόνο για συνδεδεμένους, CSRF στο X-CSRF-Token για POST/PATCH/DELETE) ==
+   GET    /api/entries?page=&per_page=        λίστα καταγραφών με σελίδες
+   POST   /api/entries                        νέα καταγραφή (επιστρέφει και το μήνυμα ηρεμίας)
+   GET|PATCH|DELETE /api/entries/{id}
+   POST   /api/sentiment/live                 ζωντανή ανάλυση, δεν αποθηκεύει
+   GET    /api/insights?unseen=1&limit=       POST /api/insights/{id}/read
+   GET    /api/messages/today                 POST /api/messages/{id}/seen
+   GET    /api/summaries?from=&to=            ημερήσιες περιλήψεις (έως 366 μέρες)
+   GET    /api/analytics/mood-trends?days=    /emotions?days=  /weekly?weeks=  /streak  /monthly  /entities?limit=
+   GET|PATCH /api/profile                     theme, sound, preferences
+
  == ΣΥΝΤΗΡΗΣΗ ==
  Το bin/maintenance.php σβήνει λογαριασμούς μετά τις 30 μέρες διαγραφής, παλιά insights,
  daily messages και relations, και τα ληγμένα αρχεία του rate limit. Μια φορά τη μέρα από cron, π.χ.:

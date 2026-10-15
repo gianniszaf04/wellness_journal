@@ -85,9 +85,16 @@ class Insight {
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
+    // false αν δεν υπαρχει ή ανηκει σε αλλον
     public function markRead(int $id, int $userId) : bool {
+        $check = $this->db->prepare('SELECT 1 FROM insights WHERE id = :id AND user_id = :user_id');
+        $check->execute([':id' => $id , ':user_id' => $userId]);
+        if ($check->fetchColumn() === false) {
+            return false;
+        }
+
         $stmt=$this->db->prepare(
-            'UPDATE insights SET  saw_by_user = 1 , read_at = NOW() 
+            'UPDATE insights SET  saw_by_user = 1 , read_at = COALESCE(read_at, NOW())
             WHERE id = :id AND user_id = :user_id
             ');
         return $stmt->execute([':id' => $id , ':user_id' => $userId]);

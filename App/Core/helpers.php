@@ -35,6 +35,14 @@ function json_response (mixed $data , int $status = 200) : void {
     exit;
 }
 
+// ακεραιος απο το query string, με την προεπιλογη αν λειπει ή ειναι εκτος οριων
+function query_int(string $key, int $default, int $min, int $max): int {
+    $value = filter_var($_GET[$key] ?? null, FILTER_VALIDATE_INT, [
+        'options' => ['min_range' => $min, 'max_range' => $max],
+    ]);
+    return $value === false ? $default : $value;
+}
+
 function e(string $value): string {
     return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 }

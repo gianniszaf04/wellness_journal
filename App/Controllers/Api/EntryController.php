@@ -66,6 +66,7 @@ class EntryController
             error_log('Insight creation error: ' . $e->getMessage());
         }
 
+        $calmMessage = null;
         try {
             if ($dominantEmotionId) {
                 $messageModel = new MotivationalMessage();
@@ -74,7 +75,14 @@ class EntryController
 
                 if ($message) {
                     $dailyMessageModel = new DailyMessage();
-                    $dailyMessageModel->logShown($userId, $message['id'], $entryDate);
+                    $dailyMessageModel->logShown($userId, (int) $message['id'], $entryDate);
+                    // η γραμμη του daily_messages, για να τη σημειωσει ο client ως διαβασμενη
+                    foreach ($dailyMessageModel->byDateForUser($userId, $entryDate) as $row) {
+                        if ((int) $row['message_id'] === (int) $message['id']) {
+                            $calmMessage = $row;
+                            break;
+                        }
+                    }
                 }
             }
         } catch (\Exception $e) {
@@ -82,7 +90,7 @@ class EntryController
         }
 
         $entry = $this->entryModel->findByIdForUser($id, $userId);
-        json_response(['success' => true, 'data' => $entry, 'ai_available' => $aiAvailable], 201);
+        json_response(['success' => true, 'data' => $entry, 'message' => $calmMessage, 'ai_available' => $aiAvailable], 201);
     }
 
     // ιδιο οριο με το AI service, αλλιως η καταγραφη σωζεται χωρις αναλυση
@@ -225,6 +233,22 @@ class EntryController
             return 2;
         }
         return 1;
+    }
+
+    // GET /api/entries?page=1&per_page=20
+    public function index(): void
+    {
+        $userId = (int) current_user_id();
+        $perPage = query_int('per_page', 20, 1, 100);
+        $total = $this->entryModel->countForUser($userId);
+        $totalPages = max(1, (int) ceil($total / $perPage));
+        $page = query_int('page', 1, 1, PHP_INT_MAX);
+
+        json_response([
+            'success' => true,
+            'data' => $page <= $totalPages ? $this->entryModel->allForUser($userId, $perPage, ($page - 1) * $perPage) : [],
+            'meta' => ['page' => $page, 'per_page' => $perPage, 'total' => $total, 'total_pages' => $totalPages],
+        ]);
     }
 
     public function show(string $id): void

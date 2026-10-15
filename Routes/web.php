@@ -17,6 +17,10 @@ use App\Controllers\AnalyticsController;
 use App\Controllers\Api\EntryController as ApiEntryController;
 use App\Controllers\Api\SentimentController  as  ApiSentimentController;
 use App\Controllers\Api\AnalyticsController as ApiAnalyticsController;
+use App\Controllers\Api\InsightController as ApiInsightController;
+use App\Controllers\Api\MessageController as ApiMessageController;
+use App\Controllers\Api\SummaryController as ApiSummaryController;
+use App\Controllers\Api\ProfileController as ApiProfileController;
 
 //δημισια
 $router-> get ('/' , [HomeController::class , 'index'], 'home');
@@ -44,12 +48,26 @@ $router->group(['middleware' => [RequireLogin::class, VerifyCsrf::class]], funct
     $router->get('/analytics',    [AnalyticsController::class,  'index'],       'app.analytics');
 
     //Api
+    $router->get('/api/entries',              [ApiEntryController::class,  'index'],           'api.entries.index');
     $router->post('/api/entries',             [ApiEntryController::class,  'store'],           'api.entries.store');
     $router->get('/api/entries/{id}',        [ApiEntryController::class,  'show'],            'api.entries.show');
     $router->patch('/api/entries/{id}',       [ApiEntryController::class,  'update'],          'api.entries.update');
     $router->delete('/api/entries/{id}',     [ApiEntryController::class,'destroy'],           'api.entries.destroy');
     $router->middleware([RateLimitLive::class])->post('/api/sentiment/live', [ApiSentimentController::class,'analyzeLive'],  'api.sentiment.live');
     $router->get('/api/analytics/mood-trends',[ApiAnalyticsController::class,'getMoodTrends'],'api.analytics.trends');
+    $router->get('/api/analytics/emotions',   [ApiAnalyticsController::class,'getEmotionDistribution'],'api.analytics.emotions');
+    $router->get('/api/analytics/weekly',     [ApiAnalyticsController::class,'getWeeklyAverage'],'api.analytics.weekly');
+    $router->get('/api/analytics/streak',     [ApiAnalyticsController::class,'getStreak'],     'api.analytics.streak');
+    $router->get('/api/analytics/monthly',    [ApiAnalyticsController::class,'getMonthlyComparison'],'api.analytics.monthly');
+    $router->get('/api/analytics/entities',   [ApiAnalyticsController::class,'getTopEntities'],'api.analytics.entities');
+
+    $router->get('/api/insights',             [ApiInsightController::class, 'index'],          'api.insights.index');
+    $router->post('/api/insights/{id}/read',  [ApiInsightController::class, 'markRead'],       'api.insights.read');
+    $router->get('/api/messages/today',       [ApiMessageController::class, 'today'],          'api.messages.today');
+    $router->post('/api/messages/{id}/seen',  [ApiMessageController::class, 'markSeen'],       'api.messages.seen');
+    $router->get('/api/summaries',            [ApiSummaryController::class, 'index'],          'api.summaries.index');
+    $router->get('/api/profile',              [ApiProfileController::class, 'show'],           'api.profile.show');
+    $router->patch('/api/profile',            [ApiProfileController::class, 'update'],         'api.profile.update');
 
 });
 
