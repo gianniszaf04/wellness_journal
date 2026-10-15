@@ -1,7 +1,5 @@
--- Για βασεις που στηθηκαν πριν προστεθει η διαγραφη λογαριασμου. Τρεχει μια φορα.
-USE wellness_journal;
-
+-- Για βασεις που στηθηκαν πριν προστεθει η διαγραφη λογαριασμου.
 ALTER TABLE users
-    ADD COLUMN deletion_requested_at TIMESTAMP NULL DEFAULT NULL AFTER status;
+    ADD COLUMN IF NOT EXISTS deletion_requested_at TIMESTAMP NULL DEFAULT NULL AFTER status;
 
-CREATE INDEX idx_users_deletion ON users(deletion_requested_at);
+CREATE INDEX IF NOT EXISTS idx_users_deletion ON users(deletion_requested_at);

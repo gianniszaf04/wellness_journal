@@ -19,8 +19,17 @@
 
  === BACKEND ===
  # PHP 8+ 
- # MY.SQL 8+
+ # MARIADB 10.4+ (XAMPP)
  # FRONT  CONTROLLER PATTERN
+
+ == ΒΑΣΗ ΔΕΔΟΜΕΝΩΝ ==
+ Πρώτη εγκατάσταση (με root):
+   mysql -u root < database/create_user.sql   (βάλε πρώτα τον κωδικό του DB_PASS)
+   mysql -u root < database/schema.sql
+   mysql -u root < database/seed.sql
+ Το schema.sql ξανατρέχει με ασφάλεια. Αλλαγές σε υπάρχουσα βάση γίνονται με migrations:
+   MIGRATE_DB_USER=root MIGRATE_DB_PASS= php database/migrate.php            (τρέχει τα νέα)
+   MIGRATE_DB_USER=root MIGRATE_DB_PASS= php database/migrate.php --status   (τι έχει τρέξει)
 
  == AI == 
  ...

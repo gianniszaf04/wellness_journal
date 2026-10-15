@@ -3,12 +3,7 @@
 -- ======😮‍💨====== 
 CREATE DATABASE IF NOT EXISTS wellness_journal CHARACTER SET utf8mb4  COLLATE utf8mb4_unicode_ci;
 USE wellness_journal;
-
-DROP USER IF EXISTS 'wellness_user'@'localhost';
-CREATE USER 'wellness_user'@'localhost' IDENTIFIED BY 'CHANGE_ME';
-
-GRANT SELECT ,INSERT ,UPDATE , DELETE ON wellness_journal.* TO 'wellness_user'@'localhost';
-FLUSH PRIVILEGES;
+-- ξανατρεχει με ασφαλεια, ο χρηστης της βασης φτιαχνεται μια φορα απο το create_user.sql
 
 SET NAMES utf8mb4;
 SET time_zone='+00:00';
@@ -33,7 +28,7 @@ CONSTRAINT check_username CHECK (CHAR_LENGTH(TRIM(username))>0),
 CONSTRAINT check_email CHECK (CHAR_LENGTH(TRIM(email))>0)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE INDEX idx_users_deletion ON users(deletion_requested_at);
+CREATE INDEX IF NOT EXISTS idx_users_deletion ON users(deletion_requested_at);
 
 CREATE TABLE IF NOT EXISTS  user_profiles(
 user_id BIGINT UNSIGNED PRIMARY KEY,
@@ -81,9 +76,9 @@ CONSTRAINT entries_emotion FOREIGN KEY (dominant_emotion_id) REFERENCES emotions
 CONSTRAINT check_senti_score CHECK (sentiment_score IS NULL OR (sentiment_score >=-1.0000 AND sentiment_score<=1.0000))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci; 
 
-CREATE INDEX  idx_entries_created ON entries(user_id,created_at);
-CREATE INDEX  idx_entries_user_date ON entries(user_id,entry_date);
-CREATE INDEX idx_emotion ON entries(dominant_emotion_id);
+CREATE INDEX IF NOT EXISTS idx_entries_created ON entries(user_id,created_at);
+CREATE INDEX IF NOT EXISTS idx_entries_user_date ON entries(user_id,entry_date);
+CREATE INDEX IF NOT EXISTS idx_emotion ON entries(dominant_emotion_id);
 
 -- ΦΑΣΗ 3 ΣΑΠΟΡΤΑΡΟΥΜΕ ΤΟΥΣ ΧΡΗΣΤΕΣ ΜΑΣ 💪
 	  
@@ -102,7 +97,7 @@ CONSTRAINT check_message_active CHECK (is_active IN (0,1))
 
 )ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci; 
 
-CREATE INDEX  idx_messages ON motivational_messages(target_emotion,intensity_level);
+CREATE INDEX IF NOT EXISTS idx_messages ON motivational_messages(target_emotion,intensity_level);
 
 CREATE TABLE  IF NOT EXISTS daily_summaries (
 id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -125,7 +120,7 @@ CONSTRAINT check_summary_done CHECK (summary_is_done IN (0,1))
 
 )ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci; 
 
-CREATE INDEX idx_daily_sums ON daily_summaries(user_id,summary_date);
+CREATE INDEX IF NOT EXISTS idx_daily_sums ON daily_summaries(user_id,summary_date);
 
 CREATE TABLE  IF NOT EXISTS daily_messages(
 id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -143,7 +138,7 @@ CONSTRAINT check_user_saw_message CHECK (user_saw_message IN (0,1))
 
 )ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci; 
 
-CREATE INDEX idx_daily_mess ON daily_messages(user_id,summary_date,user_saw_message);
+CREATE INDEX IF NOT EXISTS idx_daily_mess ON daily_messages(user_id,summary_date,user_saw_message);
 
 -- ΦΑΣΗ 4 ΠΑΤΑΜΕ ΤΟ 0  - ΠΡΩΤΗ ΚΑΙ ΦΥΓΑΜΕ 🏎️
 
@@ -161,8 +156,8 @@ CONSTRAINT check_entityType_notEmpty CHECK(CHAR_LENGTH(TRIM(entity_type))>0)
 
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci; 
 
-CREATE INDEX  idx_entry_entities_name ON entry_entities(entity_name);
-CREATE INDEX  idx_entry_entities_type ON entry_entities(entity_type);
+CREATE INDEX IF NOT EXISTS idx_entry_entities_name ON entry_entities(entity_name);
+CREATE INDEX IF NOT EXISTS idx_entry_entities_type ON entry_entities(entity_type);
 
 -- στην προσπαθεια συνδεσης keywords  με συναισθηματα 😃
 CREATE TABLE  IF NOT EXISTS relation_emotion_entity (
@@ -185,7 +180,7 @@ CONSTRAINT check_avg_sentiment_score  CHECK (avg_sentiment_score IS NULL OR (avg
 
 )ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci; 
 
-CREATE INDEX idx_match_user_entity ON  relation_emotion_entity(user_id,entity_name);
+CREATE INDEX IF NOT EXISTS idx_match_user_entity ON  relation_emotion_entity(user_id,entity_name);
 
 CREATE TABLE IF NOT EXISTS  insights (
 id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -209,7 +204,17 @@ CONSTRAINT check_saw_by_user CHECK (saw_by_user IN (0,1))
 
 )ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci; 
 
-CREATE INDEX idx_insights_user ON  insights(user_id,saw_by_user,priority);
+CREATE INDEX IF NOT EXISTS idx_insights_user ON  insights(user_id,saw_by_user,priority);
+
+-- ποια migrations εχουν τρεξει (database/migrate.php)
+CREATE TABLE IF NOT EXISTS schema_migrations (
+migration VARCHAR(255) PRIMARY KEY,
+applied_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+)ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- οσα περιεχονται ηδη στο παραπανω schema
+INSERT IGNORE INTO schema_migrations (migration) VALUES
+('001_add_deletion_requested_at.sql');
 
 
 
