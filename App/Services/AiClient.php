@@ -49,8 +49,27 @@ class AiClient
     // P(Ναι) για irony/distortion απο το analysis, null αν λειπει ή δεν ειναι αριθμος στο [0,1]
     public static function probability(array $aiData, string $task): ?float
     {
-        $value = $aiData['analysis'][$task]['probability'] ?? null;
+        return self::unit($aiData['analysis'][$task]['probability'] ?? null);
+    }
 
+    // λιστα απο labels (π.χ. emotions, distortion types), μονο τα strings
+    public static function labels(mixed $value): array
+    {
+        return is_array($value) ? array_values(array_filter($value, 'is_string')) : [];
+    }
+
+    // label => πιθανοτητα του απο το $probabilities, null αν λειπει ή ειναι εκτος [0,1]
+    public static function scored(mixed $labels, mixed $probabilities): array
+    {
+        $scored = [];
+        foreach (self::labels($labels) as $label) {
+            $scored[$label] = self::unit(is_array($probabilities) ? ($probabilities[$label] ?? null) : null);
+        }
+        return $scored;
+    }
+
+    private static function unit(mixed $value): ?float
+    {
         if (!is_int($value) && !is_float($value)) {
             return null;
         }

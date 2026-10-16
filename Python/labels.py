@@ -3,7 +3,7 @@ SENTIMENT_LABELS = ["Αρνητικό", "Ουδέτερο", "Θετικό"]
 
 SENTIMENT_WEIGHTS = [-1.0, 0.0, 1.0]
 
-#Φαση 2 -> 10 κλάσεις
+#Φαση 2 -> 10 κλάσεις, multi-label (ενα κειμενο μπορει να εχει πολλα συναισθηματα)
 
 EMOTION_LABELS = [
     "Χαρά",
@@ -25,18 +25,37 @@ IRONY_LABELS = ["Όχι","Ναι"]
 
 DISTORTION_LABELS = ["Όχι","Ναι"]
 
-TASKS = ["sentiment","emotion","irony","distortion"]
+# Τυποι γνωστικης διαστρεβλωσης (CBT, Burns), multi-label
+DISTORTION_TYPE_LABELS = [
+    "Καταστροφολογία",
+    "Όλα ή τίποτα",
+    "Υπεργενίκευση",
+    "Ανάγνωση σκέψης",
+    "Προφητεία",
+    "Συναισθηματική συλλογιστική",
+    "Πρέπει",
+    "Ταμπέλες",
+    "Προσωποποίηση",
+    "Νοητικό φίλτρο",
+]
 
-HEAD_DIMS = {
-    "sentiment": len(SENTIMENT_LABELS),
-    "emotion": len(EMOTION_LABELS),
-    "irony": len(IRONY_LABELS),
-    "distortion": len(DISTORTION_LABELS),
-}
+#Φαση 5 -> Κινδυνος αυτοτραυματισμου / αυτοκτονικου ιδεασμου
+RISK_LABELS = ["Όχι","Ναι"]
+
+TASKS = ["sentiment","emotion","irony","distortion","distortion_types","risk"]
+
+MULTI_LABEL_TASKS = {"emotion", "distortion_types"}
 
 LABEL_SETS = {
     "sentiment": SENTIMENT_LABELS,
     "emotion": EMOTION_LABELS,
     "irony": IRONY_LABELS,
     "distortion": DISTORTION_LABELS,
+    "distortion_types": DISTORTION_TYPE_LABELS,
+    "risk": RISK_LABELS,
 }
+
+HEAD_DIMS = {task: len(labels) for task, labels in LABEL_SETS.items()}
+
+# οριο για τα multi-label (sigmoid)
+MULTI_LABEL_THRESHOLD = 0.5

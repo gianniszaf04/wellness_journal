@@ -6,12 +6,14 @@ use App\Models\Entry;
 use App\Models\Emotion;
 use App\Models\EmotionEntityRelation;
 use App\Models\EntryEntity;
+use App\Models\EntryLabel;
 use App\Models\DailySummary;
 use App\Models\MotivationalMessage;
 use App\Models\DailyMessage;
 use App\Models\Insight;
 use App\Core\Request;
 use App\Services\AiClient;
+use App\Services\CrisisSupport;
 
 class EntryController
 {
@@ -44,8 +46,9 @@ class EntryController
             json_response(['success' => false, 'error' => 'Αποτυχία δημιουργίας καταγραφής.'], 500);
         }
 
-        [$sentimentScore, $dominantEmotionId, $emotionConfidence, $aiAvailable] =
+        [$sentimentScore, $dominantEmotionId, $emotionConfidence, $aiAvailable, $riskProbability] =
             $this->analyzeAndPersist($id, $userId, $body, $entryDate, false);
+        $support = CrisisSupport::forEntry($body, $riskProbability, $sentimentScore, $this->warningThreshold());
 
         try {
             $insightModel = new Insight();
@@ -68,7 +71,8 @@ class EntryController
 
         $calmMessage = null;
         try {
-            if ($dominantEmotionId) {
+            // σε κριση δεν ταιριαζει ενα ανεμελο motivational μηνυμα, μενει μονο το support
+            if ($dominantEmotionId && ($support['level'] ?? null) !== CrisisSupport::LEVEL_CRISIS) {
                 $messageModel = new MotivationalMessage();
                 $intensity = $this->intensityFromScore($sentimentScore);
                 $message = $messageModel->randomForEmotion($dominantEmotionId, $intensity);
@@ -90,7 +94,13 @@ class EntryController
         }
 
         $entry = $this->entryModel->findByIdForUser($id, $userId);
-        json_response(['success' => true, 'data' => $entry, 'message' => $calmMessage, 'ai_available' => $aiAvailable], 201);
+        json_response([
+            'success' => true,
+            'data' => $entry,
+            'message' => $calmMessage,
+            'support' => $support,
+            'ai_available' => $aiAvailable,
+        ], 201);
     }
 
     // ιδιο οριο με το AI service, αλλιως η καταγραφη σωζεται χωρις αναλυση
@@ -106,8 +116,8 @@ class EntryController
 
     /**
      * Καλει το AI service και κανει persist: sentiment/emotion στην εγγραφη,
-     * (επανα)δημιουργια entities, relations και daily summary.
-     * Επιστρεφει [?float sentimentScore, ?int dominantEmotionId, ?float emotionConfidence, bool aiAvailable].
+     * (επανα)δημιουργια entities, emotions/distortion types, relations και daily summary.
+     * Επιστρεφει [?float sentimentScore, ?int dominantEmotionId, ?float emotionConfidence, bool aiAvailable, ?float riskProbability].
      *
      * @param bool $replaceEntities Σε edit (true): σβηνει & ξαναγραφει τα entities.
      */
@@ -120,6 +130,9 @@ class EntryController
         $aiData = null;
         $ironyProbability = null;
         $distortionProbability = null;
+        $riskProbability = null;
+        $emotions = [];
+        $distortionTypes = [];
 
         try {
             $aiData = (new AiClient())->analyze($body);
@@ -142,6 +155,12 @@ class EntryController
                 $entities = $aiData['entities'] ?? [];
                 $ironyProbability = AiClient::probability($aiData, 'irony');
                 $distortionProbability = AiClient::probability($aiData, 'distortion');
+                $riskProbability = AiClient::probability($aiData, 'risk');
+                $emotions = AiClient::scored($aiData['emotions'] ?? null, $aiData['analysis']['emotion']['probabilities'] ?? null);
+                $distortionTypes = AiClient::scored(
+                    $aiData['analysis']['distortion']['types'] ?? null,
+                    $aiData['analysis']['distortion']['type_probabilities'] ?? null
+                );
             }
         } catch (\Exception $e) {
             error_log('AI Service Error: ' . $e->getMessage());
@@ -167,6 +186,14 @@ class EntryController
                 ]);
             } catch (\PDOException $e) {
                 error_log('Entry sentiment update error: ' . $e->getMessage());
+            }
+        }
+
+        if ($replaceEntities || $emotions !== [] || $distortionTypes !== []) {
+            try {
+                (new EntryLabel())->replace($id, $emotions, $distortionTypes);
+            } catch (\PDOException $e) {
+                error_log('Entry labels update error: ' . $e->getMessage());
             }
         }
 
@@ -208,7 +235,7 @@ class EntryController
             error_log('Daily summary recalculation error: ' . $e->getMessage());
         }
 
-        return [$sentimentScore, $dominantEmotionId, $emotionConfidence, $aiData !== null];
+        return [$sentimentScore, $dominantEmotionId, $emotionConfidence, $aiData !== null, $riskProbability];
     }
 
     private function warningThreshold(): float
@@ -288,11 +315,12 @@ class EntryController
 
         // Ξανατρεχουμε AI ωστε sentiment/emotion/entities/summary να μην μεινουν stale απο το παλιο κειμενο
         $entryDate = (string) ($existing['entry_date'] ?? date('Y-m-d'));
-        [, , , $aiAvailable] = $this->analyzeAndPersist($entryId, $userId, $body, $entryDate, true);
+        [$sentimentScore, , , $aiAvailable, $riskProbability] = $this->analyzeAndPersist($entryId, $userId, $body, $entryDate, true);
+        $support = CrisisSupport::forEntry($body, $riskProbability, $sentimentScore, $this->warningThreshold());
 
         $entry = $this->entryModel->findByIdForUser($entryId, $userId);
 
-        json_response(['success' => true, 'data' => $entry, 'ai_available' => $aiAvailable]);
+        json_response(['success' => true, 'data' => $entry, 'support' => $support, 'ai_available' => $aiAvailable]);
     }
 
     public function destroy(string $id): void

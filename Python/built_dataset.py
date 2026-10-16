@@ -4,7 +4,7 @@ import os
 
 import pandas as pd
 
-from labels import LABEL_SETS, TASKS
+from labels import LABEL_SETS, TASKS, MULTI_LABEL_TASKS
 
 LOG = os.getenv("VERIFY_LOG", os.path.join("..", "storage", "ai_verification.jsonl"))
 OUT = os.path.join("training", "dataset_auto.csv")
@@ -32,7 +32,16 @@ def main():
             row = {"text": text}
             has_valid_label = False
             for task in TASKS:
-                idx = INDEX[task].get(gt.get(task), -100)
+                value = gt.get(task)
+                if task in MULTI_LABEL_TASKS:
+                    # "1|4" για το train_mtl, κενο οταν το OpenAI δεν εδωσε λιστα
+                    if not isinstance(value, list):
+                        row[task] = ""
+                        continue
+                    row[task] = "|".join(str(INDEX[task][v]) for v in value if v in INDEX[task])
+                    has_valid_label = has_valid_label or row[task] != ""
+                    continue
+                idx = INDEX[task].get(value, -100)
                 row[task] = idx
                 if idx != -100:
                     has_valid_label = True

@@ -89,6 +89,50 @@ CREATE INDEX IF NOT EXISTS idx_entries_created ON entries(user_id,created_at);
 CREATE INDEX IF NOT EXISTS idx_entries_user_date ON entries(user_id,entry_date);
 CREATE INDEX IF NOT EXISTS idx_emotion ON entries(dominant_emotion_id);
 
+-- ολα τα συναισθηματα της καταγραφης πανω απο 0.5 (multi-label), οχι μονο το dominant
+CREATE TABLE IF NOT EXISTS entry_emotions (
+entry_id BIGINT UNSIGNED NOT NULL,
+emotion_id BIGINT UNSIGNED NOT NULL,
+probability DECIMAL(5,4) NULL,
+
+PRIMARY KEY (entry_id, emotion_id),
+CONSTRAINT fk_entry_emotions_entry FOREIGN KEY (entry_id) REFERENCES entries(id) ON DELETE CASCADE,
+CONSTRAINT fk_entry_emotions_emotion FOREIGN KEY (emotion_id) REFERENCES emotions(id) ON DELETE CASCADE,
+CONSTRAINT check_entry_emotion_prob CHECK (probability IS NULL OR (probability >= 0 AND probability <= 1))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- τυποι γνωστικης διαστρεβλωσης (CBT), ιδια ονοματα με το DISTORTION_TYPE_LABELS του Python/labels.py
+CREATE TABLE IF NOT EXISTS distortion_types (
+id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+name VARCHAR(50) NOT NULL,
+
+CONSTRAINT uq_distortion_types UNIQUE (name),
+CONSTRAINT check_distortion_type_name CHECK (CHAR_LENGTH(TRIM(name))>0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT IGNORE INTO distortion_types (name) VALUES
+('Καταστροφολογία'),
+('Όλα ή τίποτα'),
+('Υπεργενίκευση'),
+('Ανάγνωση σκέψης'),
+('Προφητεία'),
+('Συναισθηματική συλλογιστική'),
+('Πρέπει'),
+('Ταμπέλες'),
+('Προσωποποίηση'),
+('Νοητικό φίλτρο');
+
+CREATE TABLE IF NOT EXISTS entry_distortions (
+entry_id BIGINT UNSIGNED NOT NULL,
+distortion_type_id BIGINT UNSIGNED NOT NULL,
+probability DECIMAL(5,4) NULL,
+
+PRIMARY KEY (entry_id, distortion_type_id),
+CONSTRAINT fk_entry_distortions_entry FOREIGN KEY (entry_id) REFERENCES entries(id) ON DELETE CASCADE,
+CONSTRAINT fk_entry_distortions_type FOREIGN KEY (distortion_type_id) REFERENCES distortion_types(id) ON DELETE CASCADE,
+CONSTRAINT check_entry_distortion_prob CHECK (probability IS NULL OR (probability >= 0 AND probability <= 1))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- ΦΑΣΗ 3 ΣΑΠΟΡΤΑΡΟΥΜΕ ΤΟΥΣ ΧΡΗΣΤΕΣ ΜΑΣ 💪
 	  
 CREATE TABLE IF NOT EXISTS  motivational_messages (
@@ -224,7 +268,8 @@ applied_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 -- οσα περιεχονται ηδη στο παραπανω schema
 INSERT IGNORE INTO schema_migrations (migration) VALUES
 ('001_add_deletion_requested_at.sql'),
-('002_add_irony_distortion_to_entries.sql');
+('002_add_irony_distortion_to_entries.sql'),
+('003_add_entry_emotions_distortions.sql');
 
 
 

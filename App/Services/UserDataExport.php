@@ -3,6 +3,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Models\EmotionEntityRelation;
+use App\Models\EntryLabel;
 use App\Models\Insight;
 use App\Models\UserProfile;
 use Database;
@@ -47,7 +48,7 @@ class UserDataExport
         ];
     }
 
-    // καθε καταγραφη μαζι με τα entities της
+    // καθε καταγραφη μαζι με τα entities, emotions και distortion types της
     private function entries(int $userId): array
     {
         $entries = $this->fetchAll(
@@ -68,7 +69,7 @@ class UserDataExport
         }
         unset($entry);
 
-        return $entries;
+        return (new EntryLabel())->attach($entries);
     }
 
     private function fetchAll(string $sql, int $userId): array

@@ -51,7 +51,8 @@ class Entry{
             WHERE e.id = :id AND e.user_id = :user_id 
             LIMIT 1');
             $stmt->execute([':id' => $id, ':user_id' => $userId]);
-            return $stmt->fetch(PDO::FETCH_ASSOC) ?: null ;
+            $entry = $stmt->fetch(PDO::FETCH_ASSOC);
+            return $entry ? (new EntryLabel())->attach([$entry])[0] : null;
     }
 
     public function update(int $id, int $userId,  string $body):bool {
@@ -104,7 +105,7 @@ class Entry{
         $stmt->bindValue(':off', $offset, PDO::PARAM_INT);
         $stmt->execute();
 
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        return (new EntryLabel())->attach($stmt->fetchAll(PDO::FETCH_ASSOC));
     }
 
     public function countForUser(int $userId) : int {

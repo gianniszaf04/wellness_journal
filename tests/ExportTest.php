@@ -5,7 +5,7 @@ test('εξαγωγή δεδομένων: όλα του χρήστη, τίποτ�
     FakeAi::start();
     $user = make_user();
     $other = make_user();
-    create_entry($user, 'SCORE=-1 EMO=Λύπη ENT=Μαρία');
+    create_entry($user, 'SCORE=-1 EMO=Λύπη EMOS=Λύπη,Φόβος DIST=0.9 TYPES=Υπεργενίκευση ENT=Μαρία');
     create_entry($user, 'SCORE=0.5 EMO=Χαρά ENT=Μαρία,Νίκος');
     $user->http->api('PATCH', 'api/profile', ['theme' => 'dark_theme', 'preferences' => ['lang' => 'el']]);
     create_entry($other, 'SCORE=0.9 EMO=Χαρά ENT=ΜυστικόΤουΆλλου');
@@ -30,6 +30,11 @@ test('εξαγωγή δεδομένων: όλα του χρήστη, τίποτ�
         return $names;
     }, $data['entries']);
     assert_same([['Μαρία'], ['Μαρία', 'Νίκος']], $entities, 'καταγραφές με entities');
+    $labels = array_map(
+        static fn (array $e): array => [array_column($e['emotions'], 'name'), array_column($e['distortion_types'], 'name')],
+        $data['entries']
+    );
+    assert_same([[['Λύπη', 'Φόβος'], ['Υπεργενίκευση']], [[], []]], $labels, 'καταγραφές με emotions και τύπους διαστρέβλωσης');
     assert_same(1, count($data['insights']), 'insights');
     assert_same(1, count($data['daily_summaries']), 'summaries');
     assert_true($data['daily_messages'] !== [] && !in_array('', array_column($data['daily_messages'], 'message_text'), true), 'μηνύματα με κείμενο');

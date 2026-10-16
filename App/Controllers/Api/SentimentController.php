@@ -5,6 +5,7 @@ namespace App\Controllers\Api;
 use App\Core\Request;
 use App\Models\Emotion;
 use App\Services\AiClient;
+use App\Services\CrisisSupport;
 
 class SentimentController
 {
@@ -18,13 +19,12 @@ class SentimentController
     public function analyzeLive(): void
     {
         $request = new Request();
-        $text = trim((string) $request->input('text', ''));
+        $text = mb_substr(trim((string) $request->input('text', '')), 0, self::MAX_LENGTH);
 
+        // οι λεξεις-κλειδια ελεγχονται και σε μικρα κειμενα, π.χ. "θέλω να πεθάνω"
         if (mb_strlen($text) < self::MIN_LENGTH) {
-            json_response(['success' => true, 'data' => null]);
+            json_response(['success' => true, 'data' => null, 'support' => CrisisSupport::forText($text, null)]);
         }
-
-        $text = mb_substr($text, 0, self::MAX_LENGTH);
 
         try {
             $aiData = (new AiClient())->analyze($text);
@@ -34,7 +34,7 @@ class SentimentController
         }
 
         if ($aiData === null) {
-            json_response(['success' => true, 'data' => null, 'ai_available' => false]);
+            json_response(['success' => true, 'data' => null, 'support' => CrisisSupport::forText($text, null), 'ai_available' => false]);
         }
 
         $emotionName = $aiData['dominant_emotion'] ?? null;
@@ -53,9 +53,12 @@ class SentimentController
                     'color' => $emotion['color'],
                     'confidence' => $confidence !== null ? round((float) $confidence, 4) : null,
                 ] : null,
+                'emotions' => AiClient::labels($aiData['emotions'] ?? null),
                 'irony' => $this->binaryTask($aiData, 'irony'),
                 'distortion' => $this->binaryTask($aiData, 'distortion'),
+                'distortion_types' => AiClient::labels($aiData['analysis']['distortion']['types'] ?? null),
             ],
+            'support' => CrisisSupport::forText($text, AiClient::probability($aiData, 'risk')),
         ]);
     }
 

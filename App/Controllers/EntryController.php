@@ -31,11 +31,34 @@ class EntryController
                 <button type="submit">Αποθήκευση</button>
             </form>
             <p id="msg"></p>
+            <section id="support" role="alert" hidden></section>
             <script>
+            // μηνυμα υποστηριξης με τις γραμμες βοηθειας (support του API)
+            function renderSupport(support) {
+                const box = document.getElementById("support");
+                box.replaceChildren();
+                box.hidden = !support;
+                if (!support) return;
+                const title = document.createElement("h2");
+                title.textContent = support.title;
+                const text = document.createElement("p");
+                text.textContent = support.message;
+                const list = document.createElement("ul");
+                for (const line of support.helplines) {
+                    const item = document.createElement("li");
+                    const link = document.createElement("a");
+                    link.href = "tel:" + line.number;
+                    link.textContent = line.number;
+                    item.append(link, " " + line.name + " (" + line.available + "). " + line.description);
+                    list.append(item);
+                }
+                box.append(title, text, list);
+            }
             document.getElementById("entryForm").addEventListener("submit", async (ev) => {
                 ev.preventDefault();
                 const msg = document.getElementById("msg");
                 msg.textContent = "Αποθήκευση...";
+                renderSupport(null);
                 try {
                     const res = await fetch("' . $apiUrl . '", {
                         method: "POST",
@@ -49,6 +72,7 @@ class EntryController
                     if (data.success) {
                         msg.textContent = "Αποθηκεύτηκε! (id: " + data.data.id + ")";
                         document.getElementById("body").value = "";
+                        renderSupport(data.support);
                     } else {
                         msg.textContent = "Σφάλμα: " + (data.error || "άγνωστο");
                     }

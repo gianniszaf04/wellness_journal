@@ -19,6 +19,15 @@ test('AiClient::probability δέχεται μόνο αριθμούς στο [0,1
     assert_same(null, AiClient::probability([], 'distortion'), 'λείπει');
 });
 
+test('AiClient::scored: label με την πιθανότητά του, null αν λείπει ή είναι άκυρη', function (): void {
+    assert_same(
+        ['Λύπη' => 0.8123, 'Άγχος' => null, 'Φόβος' => null],
+        AiClient::scored(['Λύπη', 3, 'Άγχος', 'Φόβος'], ['Λύπη' => 0.81234, 'Άγχος' => 1.5, 'Φόβος' => '0.7'])
+    );
+    assert_same(['Λύπη' => null], AiClient::scored(['Λύπη'], null), 'χωρίς πιθανότητες');
+    assert_same([], AiClient::scored('Λύπη', ['Λύπη' => 0.9]), 'όχι λίστα');
+});
+
 test('AiClient::detected: πάνω από 0.5, όπως το argmax του μοντέλου', function (): void {
     assert_same(false, AiClient::detected(0.5));
     assert_same(true, AiClient::detected(0.5001));
