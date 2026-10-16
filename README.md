@@ -42,6 +42,15 @@
    GET    /api/analytics/mood-trends?days=    /emotions?days=  /weekly?weeks=  /streak  /monthly  /entities?limit=
    GET|PATCH /api/profile                     theme, sound, preferences
 
+ == TESTS ==
+ Χωρίς εξαρτήσεις, μόνο PHP:
+   php tests/run.php              όλα
+   php tests/run.php password     μόνο όσα ταιριάζουν στο αρχείο ή στο όνομα
+ Θέλουν τον Apache και τη MariaDB να τρέχουν, τα migrations και το seed.sql περασμένα, και ελεύθερη
+ τη θύρα του AI_SERVICE_URL: στη θέση του AI ξεκινούν ένα ψεύτικο (tests/fake_ai.php) για προβλέψιμα αποτελέσματα.
+ Μιλούν στη βάση του .env: φτιάχνουν χρήστες *@tests.invalid, τους σβήνουν στο τέλος, και αδειάζουν
+ το storage/ratelimit. Μόνο για τοπικό dev. Άλλη διεύθυνση από το APP_URL: TEST_BASE_URL=...
+
  == ΣΥΝΤΗΡΗΣΗ ==
  Το bin/maintenance.php σβήνει λογαριασμούς μετά τις 30 μέρες διαγραφής, παλιά insights,
  daily messages και relations, και τα ληγμένα αρχεία του rate limit. Μια φορά τη μέρα από cron, π.χ.:
