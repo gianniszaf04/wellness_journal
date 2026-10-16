@@ -42,6 +42,13 @@ CONSTRAINT check_not_empty_theme CHECK (TRIM(theme_background)<>''),
 CONSTRAINT check_not_empty_sound CHECK (TRIM(sound)<>'')
 )ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- καθε νεος χρηστης παιρνει αυτοματα προφιλ με τις προεπιλογες
+-- (μια εντολη χωρις BEGIN/END, για να τρεχει χωρις DELIMITER και στο phpMyAdmin)
+CREATE TRIGGER IF NOT EXISTS after_user_register
+AFTER INSERT ON users
+FOR EACH ROW
+INSERT INTO user_profiles (user_id) VALUES (NEW.id);
+
 -- ΦΑΣΗ 2 - ΑΝΑΓΚΑΙΟΙ ΠΙΝΑΚΕΣ ΓΙΑ ΤΟ ΗΜΕΡΟΛΟΓΙΟ :))))))  --
  
 -- αποθηκευση διαθέσιμων συναισθημάτων  που γνωρίζει το σύστημα που έχω φτιάξει (keeping it tidy af)

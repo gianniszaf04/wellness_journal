@@ -18,6 +18,8 @@ require $base . 'App/Core/Env.php';
 
 $user = getenv('MIGRATE_DB_USER') ?: (string) getenv('DB_USER');
 $pass = getenv('MIGRATE_DB_USER') ? (string) getenv('MIGRATE_DB_PASS') : (string) getenv('DB_PASS');
+// το --status μονο διαβαζει, οποτε αρκει ο wellness_user (SELECT)
+$statusOnly = in_array('--status', $argv, true);
 
 try {
     $db = new PDO(
@@ -27,20 +29,31 @@ try {
         [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
     );
 
-    $db->exec('CREATE TABLE IF NOT EXISTS schema_migrations (
-        migration VARCHAR(255) PRIMARY KEY,
-        applied_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci');
+    if (!$statusOnly) {
+        $db->exec('CREATE TABLE IF NOT EXISTS schema_migrations (
+            migration VARCHAR(255) PRIMARY KEY,
+            applied_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci');
+    }
 } catch (PDOException $e) {
     fwrite(STDERR, 'Σύνδεση με τη βάση απέτυχε: ' . $e->getMessage() . PHP_EOL);
     exit(1);
 }
 
-$applied = $db->query('SELECT migration FROM schema_migrations')->fetchAll(PDO::FETCH_COLUMN);
+try {
+    $applied = $db->query('SELECT migration FROM schema_migrations')->fetchAll(PDO::FETCH_COLUMN);
+} catch (PDOException $e) {
+    // στο --status ο πινακας μπορει να μην υπαρχει ακομα: τοτε κανενα δεν εχει τρεξει
+    if (!$statusOnly) {
+        fwrite(STDERR, 'Ανάγνωση του schema_migrations απέτυχε: ' . $e->getMessage() . PHP_EOL);
+        exit(1);
+    }
+    $applied = [];
+}
 $files = glob(__DIR__ . '/migrations/*.sql') ?: [];
 sort($files);
 
-if (in_array('--status', $argv, true)) {
+if ($statusOnly) {
     foreach ($files as $file) {
         $name = basename($file);
         echo (in_array($name, $applied, true) ? 'applied  ' : 'pending  ') . $name . PHP_EOL;
