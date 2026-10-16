@@ -83,8 +83,9 @@ class AuthController {
             return;
         }
 
-        if(strlen($password) <8) {
-            $this->redirectWithError('/register','Ο κωδικός πρέπει να αποτελείται τουλάχιστον από 8 χαρακτήρες.');
+        $passwordError = User::passwordError($password);
+        if ($passwordError !== null) {
+            $this->redirectWithError('/register', $passwordError);
             return;
         }
 

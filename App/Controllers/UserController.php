@@ -8,7 +8,6 @@ use App\Core\Request;
 use App\Services\UserDataExport;
 
 class UserController {
-    private const MIN_PASSWORD_LENGTH = 8;
 
     private User $userModel;
     private UserProfile $profileModel;
@@ -57,7 +56,7 @@ class UserController {
         <p>Μετα την αλλαγη θα αποσυνδεθεις απο ολες τις αλλες συσκευες.</p>
         <form method="POST" action="' . e(url('account/password')) . '">' . csrf_field() . '
             <input type="password" name="current_password" placeholder="Τρεχων κωδικος" required><br>
-            <input type="password" name="new_password" placeholder="Νεος κωδικος (τουλαχιστον ' . self::MIN_PASSWORD_LENGTH . ' χαρακτηρες)" required><br>
+            <input type="password" name="new_password" placeholder="Νεος κωδικος (τουλαχιστον ' . User::MIN_PASSWORD_LENGTH . ' χαρακτηρες)" required><br>
             <input type="password" name="new_password_confirmation" placeholder="Επαναληψη νεου κωδικου" required><br>
             <button type="submit">Αλλαγη κωδικου</button>
         </form>
@@ -135,8 +134,9 @@ class UserController {
             redirect('/profile');
         }
         // ιδιος κανονας με την εγγραφη
-        if (strlen($new) < self::MIN_PASSWORD_LENGTH) {
-            $this->flash('password_error', 'Ο νέος κωδικός πρέπει να έχει τουλάχιστον ' . self::MIN_PASSWORD_LENGTH . ' χαρακτήρες.');
+        $passwordError = User::passwordError($new);
+        if ($passwordError !== null) {
+            $this->flash('password_error', str_replace('Ο κωδικός', 'Ο νέος κωδικός', $passwordError));
             redirect('/profile');
         }
         if (!hash_equals($new, $confirmation)) {

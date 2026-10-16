@@ -8,6 +8,21 @@ use PDO;
 class User {
     // μετα απο τοσες μερες ο λογαριασμος σβηνεται οριστικα
     public const DELETION_GRACE_DAYS = 30;
+    public const MIN_PASSWORD_LENGTH = 8;
+    // το bcrypt αγνοει οτι υπαρχει μετα τα 72 bytes (ενα ελληνικο γραμμα = 2 bytes)
+    public const MAX_PASSWORD_BYTES = 72;
+
+    // κοινος κανονας για εγγραφη και αλλαγη κωδικου, null αν ο κωδικος ειναι ενταξει
+    public static function passwordError(string $password): ?string {
+        if (mb_strlen($password) < self::MIN_PASSWORD_LENGTH) {
+            return 'Ο κωδικός πρέπει να έχει τουλάχιστον ' . self::MIN_PASSWORD_LENGTH . ' χαρακτήρες.';
+        }
+        if (strlen($password) > self::MAX_PASSWORD_BYTES) {
+            return 'Ο κωδικός είναι πολύ μεγάλος: έως ' . self::MAX_PASSWORD_BYTES
+                . ' λατινικοί χαρακτήρες ή ' . intdiv(self::MAX_PASSWORD_BYTES, 2) . ' ελληνικοί.';
+        }
+        return null;
+    }
 
     private PDO $db;
 
@@ -50,6 +65,9 @@ class User {
         if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
             return false;
         }
+        if (self::passwordError($password) !== null) {
+            return false;
+        }
 
         try {
             $stmt = $this->db->prepare('INSERT INTO users (username, name, email, password_hash) VALUES (:username, :name, :email, :password_hash)');
@@ -78,6 +96,9 @@ class User {
     }
 
     public function updatePassword(int $id, string $password): bool {
+        if (self::passwordError($password) !== null) {
+            return false;
+        }
         try {
             $stmt = $this->db->prepare('UPDATE users SET password_hash = :hash WHERE id = :id');
             $stmt->execute([':hash' => password_hash($password, PASSWORD_BCRYPT), ':id' => $id]);
