@@ -111,3 +111,33 @@ test('sessions ακυρώνονται με status=0 ή αίτημα διαγρα
     $update('UPDATE users SET deletion_requested_at = NOW()');
     assert_same(302, $third->get('dashboard')->status, 'αίτημα διαγραφής');
 });
+
+test('login: ίδιος χρόνος απάντησης όταν το email δεν υπάρχει', function (): void {
+    $user = make_user();
+    $missing = 'missing-' . bin2hex(random_bytes(4)) . '@' . TEST_EMAIL_DOMAIN;
+
+    // μεσος χρονος (διαμεσος) 5 αποτυχημενων login
+    $median = function (string $email): float {
+        $times = [];
+        for ($i = 0; $i < 5; $i++) {
+            clear_rate_limits();
+            $start = hrtime(true);
+            $r = (new Http())->form('login', ['email' => $email, 'password' => 'wrong-password'], 'login');
+            $times[] = (hrtime(true) - $start) / 1e6;
+            assert_same('login', $r->redirect(), "αποτυχημένο login {$email}");
+        }
+        sort($times);
+        return $times[2];
+    };
+
+    $existing = $median($user->email);
+    $notExisting = $median($missing);
+
+    // χωρις το dummy hash το λαθος email απαντα ~10 φορες πιο γρηγορα (δεν τρεχει bcrypt)
+    assert_true($notExisting > $existing * 0.6,
+        sprintf('email που δεν υπάρχει %.0f ms, υπαρκτό %.0f ms', $notExisting, $existing));
+
+    $dummy = (new ReflectionClassConstant(\App\Controllers\AuthController::class, 'DUMMY_HASH'))->getValue();
+    $real = (string) db()->query('SELECT password_hash FROM users WHERE id = ' . $user->id)->fetchColumn();
+    assert_same(password_get_info($real)['options'], password_get_info($dummy)['options'], 'ίδιο bcrypt cost με τα πραγματικά');
+});

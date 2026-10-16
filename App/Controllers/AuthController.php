@@ -8,6 +8,8 @@ use App\Core\Request;
 class AuthController {
     // ποσα δευτερολεπτα εχει ο χρηστης να επιλεξει επαναφορα μετα το login
     private const RESTORE_WINDOW_SEC = 600;
+    // bcrypt cost 10 (ιδιο με τα πραγματικα) απο τυχαιο κειμενο που δεν ταιριαζει με κανεναν κωδικο
+    private const DUMMY_HASH = '$2y$10$.BpNrpLU0vTQyoirwbLihOYC97Jp1TB7I1SJ92Fz3IRQD1K/H5COe';
 
     private  User $userModel;
 
@@ -121,7 +123,9 @@ class AuthController {
         $this->userModel->purgeExpiredDeletions();
 
         $user = $this->userModel->findDbEmail($email);
-        if($user === null || !password_verify($password, $user['password_hash'])) {
+        // και οταν δεν υπαρχει το email τρεχει password_verify, ωστε ο χρονος να μη δειχνει ποια emails υπαρχουν
+        $hash = $user['password_hash'] ?? self::DUMMY_HASH;
+        if(!password_verify($password, $hash) || $user === null) {
             $this->redirectWithError('/login' , 'Λαθος email ή κωδικός');
             return;
         }
