@@ -43,6 +43,42 @@ class AiClient
             return null;
         }
 
+        return self::withoutUntrained($aiData);
+    }
+
+    // AI_ALLOW_UNTRAINED=1: κραταμε και τα ανεκπαιδευτα αποτελεσματα (μονο για δοκιμες της ροης)
+    public static function allowUntrained(): bool
+    {
+        return getenv('AI_ALLOW_UNTRAINED') === '1';
+    }
+
+    public static function isTrained(array $aiData, string $task): bool
+    {
+        if (self::allowUntrained()) {
+            return true;
+        }
+        // χωρις τα πεδια (παλιο service) το θεωρουμε ανεκπαιδευτο
+        return ($aiData['model_trained'] ?? false) === true
+            && in_array($task, is_array($aiData['trained_tasks'] ?? null) ? $aiData['trained_tasks'] : [], true);
+    }
+
+    // σβηνει οτι βγαινει απο ανεκπαιδευτα heads (τυχαιες τιμες). Τα entities ερχονται απο το spaCy και μενουν
+    public static function withoutUntrained(array $aiData): array
+    {
+        if (!self::isTrained($aiData, 'sentiment')) {
+            unset($aiData['sentiment_score'], $aiData['analysis']['sentiment']);
+        }
+        if (!self::isTrained($aiData, 'emotion')) {
+            unset($aiData['dominant_emotion'], $aiData['emotions'], $aiData['analysis']['emotion']);
+        }
+        foreach (['irony', 'distortion', 'risk'] as $task) {
+            if (!self::isTrained($aiData, $task)) {
+                unset($aiData['analysis'][$task]);
+            }
+        }
+        if (!self::isTrained($aiData, 'distortion_types')) {
+            unset($aiData['analysis']['distortion']['types'], $aiData['analysis']['distortion']['type_probabilities']);
+        }
         return $aiData;
     }
 

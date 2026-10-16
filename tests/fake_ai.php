@@ -4,6 +4,8 @@ declare(strict_types=1);
 // Ψευτικο AI service για τα tests: php -S 127.0.0.1:8000 tests/fake_ai.php (το ξεκιναει το run.php).
 // Η απαντηση βγαινει απο το κειμενο: "SCORE=-0.8 EMO=Λύπη EMOS=Λύπη,Άγχος ENT=Μαρία,Νίκος IRONY=0.8 DIST=0.3
 // TYPES=Καταστροφολογία RISK=0.6". BADPROB -> irony/distortion/risk με μη αριθμητικη πιθανοτητα.
+// Προεπιλογη: εκπαιδευμενο μοντελο σε ολα τα tasks. UNTRAINED -> model_trained=false,
+// TRAINED=sentiment,emotion -> εκπαιδευμενα μονο αυτα.
 
 ini_set('serialize_precision', '-1');
 header('Content-Type: application/json; charset=utf-8');
@@ -54,4 +56,7 @@ echo json_encode([
         $list('ENT')
     ),
     'analysis' => $analysis,
+    'model_trained' => !str_contains($text, 'UNTRAINED'),
+    'trained_tasks' => str_contains($text, 'UNTRAINED') ? []
+        : ($list('TRAINED') ?: ['sentiment', 'emotion', 'irony', 'distortion', 'distortion_types', 'risk']),
 ], JSON_UNESCAPED_UNICODE);

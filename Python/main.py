@@ -248,8 +248,11 @@ def analyze(req: AnalyzeRequest, background_tasks: BackgroundTasks):
         "dominant_emotion": result["dominant_emotion"],
         "emotions": result["tasks"]["emotion"]["labels"],
         "entities": entities,         
-        "analysis": result["tasks"],  
+        "analysis": result["tasks"],
         "model_version": "mtl-greekbert-v2",
+        # το PHP κραταει μονο τα tasks που εκπαιδευτηκαν, τα υπολοιπα ειναι τυχαια
+        "model_trained": ml.get("trained", False),
+        "trained_tasks": sorted(ml.get("trained_tasks", [])),
     }
 
 # Εκκινηση: python main.py -> ακουει μονο τοπικα (127.0.0.1), ποτε σε ολο το δικτυο
