@@ -1,5 +1,6 @@
 # data/merge_dataset.py
 # processed/*.csv (ελληνικα, απο το translate_gemini.py) -> training/train.csv για το train_mtl.py
+# Οι ελληνικες πηγες (π.χ. sentimp, xed) διαβαζονται κατευθειαν απο το interim/, χωρις μεταφραση.
 #
 #   - κραταει μονο ελληνικα (lang=el), τα αμεταφραστα τα μετραει και τα προσπερνα
 #   - ελεγχει καθε label (ευρος, μορφη), τα λαθος γινονται κενα (= χωρις annotation)
@@ -22,7 +23,7 @@ import sys
 import unicodedata
 from collections import Counter, defaultdict
 
-from common import HERE, PY_ROOT, SEED
+from common import COVERED, HERE, INTERIM, PY_ROOT, SEED
 
 from labels import LABEL_SETS, MULTI_LABEL_TASKS, TASKS
 
@@ -30,7 +31,7 @@ PROCESSED = os.path.join(HERE, "processed")
 ANNOTATION = os.path.join(HERE, "annotation")
 MANUAL = os.path.join(PY_ROOT, "training", "dataset.csv")  # τα χειρογραφα παραδειγματα
 OUT = os.path.join(PY_ROOT, "training", "train.csv")
-OUT_COLUMNS = ["id", "source", "group", "split", "text"] + TASKS
+OUT_COLUMNS = ["id", "source", "group", "split", "text"] + TASKS + COVERED
 NONE = "none"
 
 _SPACES = re.compile(r"\s+")
@@ -84,6 +85,13 @@ def clean_labels(row: dict, bad: Counter) -> dict:
     if labels["distortion"] == "0" and labels["distortion_types"] == "":
         labels["distortion_types"] = NONE
     # distortion = Ναι χωρις τυπους -> δεν ξερουμε ποιοι, αφηνεται κενο
+    for t in MULTI_LABEL_TASKS:
+        value, ok = check_multi(t, row.get(f"{t}_covered"))
+        if not ok or value == NONE:
+            bad[f"{t}_covered"] += 1
+            value = ""
+        # η καλυψη παει μαζι με το label, χωρις label δεν εχει νοημα
+        labels[f"{t}_covered"] = value if labels[t] != "" else ""
     return labels
 
 
@@ -106,15 +114,29 @@ def split_of(group: str, val_ratio: float) -> str:
     return "val" if h / 0xFFFFFFFF < val_ratio else "train"
 
 
+def is_greek(path: str) -> bool:
+    with open(path, encoding="utf-8", newline="") as f:
+        first = next(csv.DictReader(f), None)
+    return first is not None and first.get("lang") == "el"
+
+
+def source_paths() -> dict[str, str]:
+    paths = {os.path.basename(p)[:-4]: p for p in glob.glob(os.path.join(PROCESSED, "*.csv"))}
+    # ελληνικο interim αντι για το αντιγραφο του processed/, ωστε να μη μενει παλια εκδοση
+    for p in glob.glob(os.path.join(INTERIM, "*.csv")):
+        if is_greek(p):
+            paths[os.path.basename(p)[:-4]] = p
+    return paths
+
+
 def load_sources(names: list[str] | None, with_manual: bool) -> list[tuple[str, list[dict]]]:
-    paths = sorted(glob.glob(os.path.join(PROCESSED, "*.csv")))
+    paths = source_paths()
     if names:
-        wanted = set(names)
-        paths = [p for p in paths if os.path.basename(p)[:-4] in wanted]
-        missing = wanted - {os.path.basename(p)[:-4] for p in paths}
+        missing = set(names) - paths.keys()
         if missing:
-            sys.exit(f"[!] Δεν βρεθηκαν στο {PROCESSED}: {', '.join(sorted(missing))}")
-    sources = [(os.path.basename(p)[:-4], read_csv(p)) for p in paths]
+            sys.exit(f"[!] Δεν βρεθηκαν στο {PROCESSED} ή στο {INTERIM}: {', '.join(sorted(missing))}")
+        paths = {n: p for n, p in paths.items() if n in names}
+    sources = [(name, read_csv(p)) for name, p in sorted(paths.items())]
 
     if with_manual and os.path.exists(MANUAL):
         rows = []
@@ -134,7 +156,7 @@ def main():
 
     sources = load_sources(args.sources, not args.no_manual)
     if not any(name != "manual" for name, _ in sources):
-        sys.exit(f"[!] Δεν υπαρχουν αρχεια στο {PROCESSED}. Τρεξε πρωτα τα prepare_*.py και το translate_gemini.py.")
+        sys.exit(f"[!] Δεν υπαρχουν αρχεια στο {PROCESSED} ή στο {INTERIM}. Τρεξε πρωτα τα prepare_*.py και το translate_gemini.py.")
 
     test = test_texts()
     merged: dict[str, dict] = {}  # key(text) -> γραμμη
@@ -164,11 +186,14 @@ def main():
             if k in merged:
                 # ιδιο κειμενο ξανα: συμπληρωνουμε μονο οσα λειπουν, σε συγκρουση κραταμε το πρωτο
                 prev = merged[k]
-                for t, v in labels.items():
+                for t in TASKS:
+                    v = labels[t]
                     if v == "":
                         continue
                     if prev[t] == "":
                         prev[t] = v
+                        if t in MULTI_LABEL_TASKS:
+                            prev[f"{t}_covered"] = labels[f"{t}_covered"]
                     elif prev[t] != v:
                         s["συγκρούσεις label"] += 1
                 s["διπλά"] += 1
@@ -208,11 +233,16 @@ def main():
     for t in TASKS:
         counts = {sp: Counter() for sp in ("train", "val")}
         n = Counter()
+        covered = Counter()  # γραμμες του train που καλυπτουν καθε label
         for r in rows:
             v = r[t]
             if v == "":
                 continue
             n[r["split"]] += 1
+            if t in MULTI_LABEL_TASKS and r["split"] == "train":
+                cov = r[f"{t}_covered"]
+                for i in (cov.split("|") if cov else range(len(LABEL_SETS[t]))):
+                    covered[LABEL_SETS[t][int(i)]] += 1
             if v == NONE:
                 counts[r["split"]]["(κανένα)"] += 1
             else:
@@ -224,7 +254,9 @@ def main():
         print(f"  {t}: {n['train']} / {n['val']} γραμμές")
         for label in list(LABEL_SETS[t]) + (["(κανένα)"] if t in MULTI_LABEL_TASKS else []):
             tr, va = counts["train"][label], counts["val"][label]
-            if tr or va:
+            if t in MULTI_LABEL_TASKS and label != "(κανένα)" and covered[label] < 50:
+                print(f"      {label:<28} {tr:>6} / {va:<6}   <- το καλύπτουν {covered[label]} γραμμές, δεν θα εκπαιδευτεί")
+            elif tr or va:
                 warn = "   <- λίγα" if tr < 50 else ""
                 print(f"      {label:<28} {tr:>6} / {va:<6}{warn}")
             elif t != "irony" and label != "(κανένα)":

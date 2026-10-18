@@ -13,13 +13,16 @@ RAW = os.path.join(HERE, "raw")
 INTERIM = os.path.join(HERE, "interim")
 sys.path.append(PY_ROOT)
 
-from labels import LABEL_SETS, TASKS  # noqa: E402
+from labels import LABEL_SETS, MULTI_LABEL_TASKS, TASKS  # noqa: E402
 
 # Κοινη μορφη ολων των interim αρχειων.
 #   group: δειγματα με ιδιο group πανε ολα μαζι σε train ή validation (π.χ. ιδιος χρηστης / ιδια ερωτηση)
 #   lang:  "en" -> θελει μεταφραση, "el" -> ετοιμο
 #   κενο label = χωρις annotation για αυτο το task (αγνοειται στο loss)
-COLUMNS = ["id", "source", "group", "lang", "text"] + TASKS + ["meta"]
+#   <task>_covered: τα labels ενος multi-label task που καλυπτει η πηγη, κενο = ολα.
+#     Τα υπολοιπα αγνοουνται στο loss (π.χ. η Κούραση στο GoEmotions δεν ειναι "οχι", ειναι "αγνωστο")
+COVERED = [f"{t}_covered" for t in TASKS if t in MULTI_LABEL_TASKS]
+COLUMNS = ["id", "source", "group", "lang", "text"] + TASKS + COVERED + ["meta"]
 
 SEED = 42
 

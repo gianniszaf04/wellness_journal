@@ -28,6 +28,7 @@ EMOTION_MAP = {
     "embarrassment": "Ντροπή",
     "remorse": "Ενοχή",
 }
+COVERED = multi("emotion", EMOTION_MAP.values())
 
 # Ομαδοποιηση sentiment απο το paper (Demszky et al. 2020, Πινακας/Εικ. sentiment grouping).
 # Τα "ambiguous" (confusion, curiosity, realization, surprise) δεν δινουν sentiment.
@@ -94,6 +95,7 @@ def main():
             # κενο multi-label ("") θα σημαινε "χωρις annotation" -> για neutral θελουμε ρητα "κανενα",
             # οποτε το γραφουμε ως "none" και το merge/train το μετατρεπει σε μηδενικο διανυσμα
             "emotion": multi("emotion", mapped) if mapped else "none",
+            "emotion_covered": COVERED,
             "sentiment": sentiment_of(emo),
             "meta": ",".join(sorted(emo)),
         })

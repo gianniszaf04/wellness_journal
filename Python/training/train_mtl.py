@@ -4,6 +4,7 @@
 # και προαιρετικα split (train/val) και group.
 # multi-label στηλες (emotion, distortion_types): indices με "|", π.χ. "1|4". Κενο = χωρις annotation,
 # "none" = ρητα κανενα label. distortion_types κενο με distortion=0 -> κανενας τυπος.
+# <task>_covered (προαιρετικα): τα labels που καλυπτει η πηγη, τα υπολοιπα αγνοουνται στο loss. Κενο = ολα.
 # Στηλη που λειπει -> αγνοειται στο loss
 #
 # Εκτελεση (απο τον φακελο Python/):
@@ -62,13 +63,22 @@ def parse_multi(value, size: int) -> list[float] | None:
     return target
 
 
+def parse_covered(value, target: list[float]) -> list[float]:
+    if _blank(value):
+        return [1.0] * len(target)
+    covered = parse_multi(value, len(target))
+    # ενα θετικο label μετραει παντα, ακομα κι αν η πηγη ξεχασε να το δηλωσει
+    return [max(c, y) for c, y in zip(covered, target)]
+
+
 class JournalDataset(Dataset):
     def __init__(self, df: pd.DataFrame, tokenizer):
         self.texts = df["text"].astype(str).tolist()
         self.tokenizer = tokenizer
         self.labels = []
+        self.covered = []  # ανα γραμμη: {task: μασκα ανα label}, None χωρις annotation
         for _, row in df.iterrows():
-            labels = {}
+            labels, covered = {}, {}
             for t in TASKS:
                 value = row.get(t)
                 if t in MULTI_LABEL_TASKS:
@@ -76,9 +86,11 @@ class JournalDataset(Dataset):
                     if target is None and t == "distortion_types" and parse_single(row.get("distortion")) == 0:
                         target = [0.0] * HEAD_DIMS[t]
                     labels[t] = target
+                    covered[t] = parse_covered(row.get(f"{t}_covered"), target) if target is not None else None
                 else:
                     labels[t] = parse_single(value)
             self.labels.append(labels)
+            self.covered.append(covered)
 
     def __len__(self):
         return len(self.texts)
@@ -96,16 +108,18 @@ class JournalDataset(Dataset):
         for t in TASKS:
             value = self.labels[idx][t]
             if t in MULTI_LABEL_TASKS:
-                item[t] = torch.tensor(value if value is not None else [0.0] * HEAD_DIMS[t])
-                item[f"{t}_mask"] = torch.tensor(value is not None)
+                zeros = [0.0] * HEAD_DIMS[t]
+                item[t] = torch.tensor(value if value is not None else zeros)
+                item[f"{t}_mask"] = torch.tensor(self.covered[idx][t] or zeros)
             else:
                 item[t] = torch.tensor(value, dtype=torch.long)
         return item
 
 
 def task_mask(batch, t, device):
+    # γραμμες με annotation στο task
     if t in MULTI_LABEL_TASKS:
-        return batch[f"{t}_mask"].to(device)
+        return batch[f"{t}_mask"].to(device).any(dim=-1)
     return batch[t].to(device) != IGNORE
 
 
@@ -127,10 +141,11 @@ def evaluate(model, loader, device) -> dict:
             y = batch[t].to(device)[mask]
             total[t] += int(mask.sum())
             if t in MULTI_LABEL_TASKS:
+                covered = batch[f"{t}_mask"].to(device)[mask]  # labels που δεν καλυπτει η πηγη δεν μετρανε
                 pred = (torch.sigmoid(logits[t][mask]) >= MULTI_LABEL_THRESHOLD).float()
-                tp[t] += int((pred * y).sum())
-                fp[t] += int((pred * (1 - y)).sum())
-                fn[t] += int(((1 - pred) * y).sum())
+                tp[t] += int((pred * y * covered).sum())
+                fp[t] += int((pred * (1 - y) * covered).sum())
+                fn[t] += int(((1 - pred) * y * covered).sum())
             else:
                 correct[t] += int((logits[t][mask].argmax(dim=-1) == y).sum())
 
@@ -197,6 +212,14 @@ def main():
     print(f"[*] trained tasks: {trained_tasks}")
     if too_few:
         print(f"[!] λιγοτερα απο {args.min_examples} δειγματα, δεν δηλωνονται trained: {too_few}")
+    # labels που δεν καλυπτει καμια πηγη μενουν ανεκπαιδευτα (sigmoid γυρω στο 0.5) -> το main.py τα κρυβει
+    trained_labels = {}
+    for t in MULTI_LABEL_TASKS & set(trained_tasks):
+        counts = [sum(c[t][i] for c in train_ds.covered if c[t] is not None) for i in range(HEAD_DIMS[t])]
+        trained_labels[t] = [l for l, n in zip(LABEL_SETS[t], counts) if n >= args.min_examples]
+        missing = [l for l in LABEL_SETS[t] if l not in trained_labels[t]]
+        if missing:
+            print(f"[!] {t}: λιγοτερες απο {args.min_examples} γραμμες καλυπτουν {missing}, δεν δηλωνονται trained")
 
     train_loader = DataLoader(train_ds, batch_size=args.batch_size, shuffle=True)
     val_loader = DataLoader(JournalDataset(val_df, tokenizer), batch_size=args.batch_size)
@@ -204,7 +227,7 @@ def main():
     model = WellnessMTLModel().to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=LR)
     ce = torch.nn.CrossEntropyLoss(ignore_index=IGNORE)
-    bce = torch.nn.BCEWithLogitsLoss()
+    bce = torch.nn.BCEWithLogitsLoss(reduction="none")  # ανα label, για τη μασκα καλυψης
 
     best_val = -1.0  # κραταμε το καλυτερο checkpoint (οχι το τελευταιο epoch)
 
@@ -224,7 +247,8 @@ def main():
                     continue
                 y = batch[t].to(device)
                 if t in MULTI_LABEL_TASKS:
-                    task_loss = bce(logits[t][mask], y[mask])
+                    covered = batch[f"{t}_mask"].to(device)
+                    task_loss = (bce(logits[t], y) * covered).sum() / covered.sum()
                 else:
                     task_loss = ce(logits[t], y)
                 loss = task_loss if loss is None else loss + task_loss
@@ -249,7 +273,8 @@ def main():
             print(f"    [*] new best (mean={mean_score:.3f}) -> saved {WEIGHTS_OUT}")
 
     with open(CONFIG_OUT, "w", encoding="utf-8") as f:
-        json.dump({"model_name": MODEL_NAME, "max_len": MAX_LEN, "labels": LABEL_SETS, "trained_tasks": trained_tasks}, f, ensure_ascii=False, indent=2)
+        json.dump({"model_name": MODEL_NAME, "max_len": MAX_LEN, "labels": LABEL_SETS, "trained_tasks": trained_tasks,
+                   "trained_labels": trained_labels}, f, ensure_ascii=False, indent=2)
 
     print(f"[+] Best val mean: {best_val:.3f}")
     print(f"[+] Weights -> {WEIGHTS_OUT}")

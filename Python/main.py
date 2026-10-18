@@ -47,18 +47,19 @@ _verify_log_lock = threading.Lock()
 
 
 
-def _trained_tasks() -> set:
+def _trained() -> tuple[set, dict]:
     # απο το mtl_config.json του training. Αλλα labels απο τα τωρινα -> τα indices δεν ταιριαζουν
     try:
         with open(CONFIG_PATH, encoding="utf-8") as f:
             config = json.load(f)
     except (OSError, ValueError) as e:
         print(f"[!] WARNING: cannot read '{CONFIG_PATH}' ({e}) - risk head disabled.")
-        return set()
+        return set(), {}
     if config.get("labels") != LABEL_SETS:
         print(f"[!] WARNING: labels in '{CONFIG_PATH}' differ from labels.py - retrain the model.")
-        return set()
-    return set(config.get("trained_tasks", []))
+        return set(), {}
+    # trained_labels λειπει σε παλια config -> ολα τα labels των trained tasks
+    return set(config.get("trained_tasks", [])), config.get("trained_labels", {})
 
 
 @asynccontextmanager
@@ -67,11 +68,12 @@ async def lifespan(app: FastAPI):
     model = WellnessMTLModel().to(device)
     ml["trained"] = False
     ml["trained_tasks"] = set()
+    ml["trained_labels"] = {}
     if os.path.exists(WEIGHTS_PATH):
         try:
             model.load_state_dict(torch.load(WEIGHTS_PATH, map_location=device, weights_only=True))
             ml["trained"] = True
-            ml["trained_tasks"] = _trained_tasks()
+            ml["trained_tasks"], ml["trained_labels"] = _trained()
             print(f"[+] Loaded trained weights: {WEIGHTS_PATH} (tasks: {sorted(ml['trained_tasks'])})")
         except RuntimeError as e:
             # βαρη απο παλια αρχιτεκτονικη (π.χ. πριν τα MLP heads) -> θελει νεο training
@@ -96,9 +98,14 @@ def _round_score(x:float) -> float:
     return max(-1.0, min(1.0, round(x, 4)))
 
 
-def _above(labels: list, probs) -> list:
-    pairs = sorted(((l, p.item()) for l, p in zip(labels, probs)), key=lambda x: -x[1])
-    return [l for l, p in pairs if p >= MULTI_LABEL_THRESHOLD]
+def _multi_probs(task: str, labels: list, probs) -> dict:
+    # μονο τα labels που εκπαιδευτηκαν, τα υπολοιπα βγαζουν τυχαια ~0.5
+    keep = ml["trained_labels"].get(task)
+    return {l: round(p.item(), 4) for l, p in zip(labels, probs) if keep is None or l in keep}
+
+
+def _above(probs: dict) -> list:
+    return [l for l, p in sorted(probs.items(), key=lambda x: -x[1]) if p >= MULTI_LABEL_THRESHOLD]
 
 
 @torch.no_grad()
@@ -115,20 +122,20 @@ def run_mtl(text: str) -> dict:
     }
 
     sent_p = probs["sentiment"]
-    emo_p = probs["emotion"]
     iro_p = probs["irony"]
     dist_p = probs["distortion"]
-    type_p = probs["distortion_types"]
+    emo_probs = _multi_probs("emotion", EMOTION_LABELS, probs["emotion"])
+    type_probs = _multi_probs("distortion_types", DISTORTION_TYPE_LABELS, probs["distortion_types"])
 
     # Συνεχες sentiment score [-1,1] = σταθμισμενο αθροισμα της κατανομης
     sentiment_score = _round_score(sum(p.item() * w for p, w in zip(sent_p, SENTIMENT_WEIGHTS)))
     sent_idx = int(torch.argmax(sent_p))
-    emo_idx = int(torch.argmax(emo_p))
+    dominant = max(emo_probs, key=emo_probs.get) if emo_probs else None
     distortion_detected = int(torch.argmax(dist_p)) == 1
 
     return {
         "sentiment_score": sentiment_score,
-        "dominant_emotion": EMOTION_LABELS[emo_idx],
+        "dominant_emotion": dominant,
 
 "tasks": {
             "sentiment": {
@@ -137,9 +144,9 @@ def run_mtl(text: str) -> dict:
                 "probabilities": {l: round(p.item(), 4) for l, p in zip(SENTIMENT_LABELS, sent_p)},
             },
             "emotion": {
-                "label": EMOTION_LABELS[emo_idx],
-                "labels": _above(EMOTION_LABELS, emo_p),
-                "probabilities": {l: round(p.item(), 4) for l, p in zip(EMOTION_LABELS, emo_p)},
+                "label": dominant,
+                "labels": _above(emo_probs),
+                "probabilities": emo_probs,
             },
             "irony": {
                 "label": IRONY_LABELS[int(torch.argmax(iro_p))],
@@ -149,8 +156,8 @@ def run_mtl(text: str) -> dict:
                 "label": DISTORTION_LABELS[int(distortion_detected)],
                 "detected": distortion_detected,
                 "probability": round(dist_p[1].item(), 4),  # P(Ναι)
-                "types": _above(DISTORTION_TYPE_LABELS, type_p) if distortion_detected else [],
-                "type_probabilities": {l: round(p.item(), 4) for l, p in zip(DISTORTION_TYPE_LABELS, type_p)},
+                "types": _above(type_probs) if distortion_detected else [],
+                "type_probabilities": type_probs,
             },
             # μονο αν το head εκπαιδευτηκε, αλλιως ενα τυχαιο head θα εβγαζε ψευτικους συναγερμους
             "risk": {
