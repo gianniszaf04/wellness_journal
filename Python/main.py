@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field
 from transformers import AutoTokenizer
 
 
-from model_architecture import WellnessMTLModel, MODEL_NAME, MODEL_REVISION
+from model_architecture import WellnessMTLModel, MODEL_NAME, MODEL_REVISION, pick_device
 from ner_service import extract_entities, load_ner
 from labels import (
     SENTIMENT_LABELS,
@@ -39,7 +39,7 @@ OPENAI_VERIFY = os.getenv("OPENAI_VERIFY", "0") == "1"
 MAX_LEN = 128
 
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = pick_device()
 ml: dict = {}
 
 # Σειριοποιει τα concurrent appends στο verify log (BackgroundTasks -> ιδιο process)

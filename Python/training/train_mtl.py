@@ -1,35 +1,46 @@
 # training/train_mtl.py
-# dataset.csv: text, sentiment, emotion, irony, distortion, distortion_types, risk (indices του labels.py)
-# multi-label στηλες (emotion, distortion_types): indices με "|", π.χ. "1|4". Κενο = χωρις annotation
-# distortion_types κενο με distortion=0 -> κανενας τυπος. Στηλη που λειπει -> αγνοειται στο loss
+# Δεδομενα: training/train.csv (απο το data/merge_dataset.py), αλλιως τα χειρογραφα training/dataset.csv.
+# Στηλες: text, sentiment, emotion, irony, distortion, distortion_types, risk (indices του labels.py)
+# και προαιρετικα split (train/val) και group.
+# multi-label στηλες (emotion, distortion_types): indices με "|", π.χ. "1|4". Κενο = χωρις annotation,
+# "none" = ρητα κανενα label. distortion_types κενο με distortion=0 -> κανενας τυπος.
+# Στηλη που λειπει -> αγνοειται στο loss
+#
+# Εκτελεση (απο τον φακελο Python/):
+#   .venv/bin/python training/train_mtl.py
+#   .venv/bin/python training/train_mtl.py --epochs 3 --batch-size 16 --data training/train.csv
+import argparse
 import json
 import os
 import sys
 
 import pandas as pd
 import torch
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import GroupShuffleSplit, train_test_split
 from torch.utils.data import Dataset, DataLoader
 from transformers import AutoTokenizer
 
 # Επιτρεπουμε import απο τον γονικο φακελο (model_architecture, labels)
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from model_architecture import WellnessMTLModel, MODEL_NAME, MODEL_REVISION
+from model_architecture import WellnessMTLModel, MODEL_NAME, MODEL_REVISION, pick_device
 from labels import TASKS, LABEL_SETS, HEAD_DIMS, MULTI_LABEL_TASKS, MULTI_LABEL_THRESHOLD
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
-DATA_PATH = os.path.join(HERE, "dataset.csv")
+MERGED_PATH = os.path.join(HERE, "train.csv")
+MANUAL_PATH = os.path.join(HERE, "dataset.csv")
 WEIGHTS_OUT = os.path.join(ROOT, "mtl_model.pt")
 CONFIG_OUT = os.path.join(ROOT, "mtl_config.json")
 
 MAX_LEN = 128
-BATCH_SIZE = 4
+BATCH_SIZE = 16
 EPOCHS = 10
 LR = 2e-5
 VAL_RATIO = 0.2
 SEED = 42
 IGNORE = -100  # δειγματα χωρις annotation σε ενα task -> δεν μετρανε στο loss
+# λιγοτερα δειγματα με annotation -> το task δεν δηλωνεται trained, οποτε το PHP δεν δειχνει τα αποτελεσματα του
+MIN_TASK_EXAMPLES = 50
 
 
 def _blank(value) -> bool:
@@ -44,6 +55,8 @@ def parse_multi(value, size: int) -> list[float] | None:
     if _blank(value):
         return None
     target = [0.0] * size
+    if str(value).strip() == "none":  # ρητα κανενα label -> ολα 0, αλλα μετραει στο loss
+        return target
     for part in str(value).split("|"):
         target[int(float(part))] = 1.0
     return target
@@ -134,30 +147,59 @@ def evaluate(model, loader, device) -> dict:
     return scores
 
 
+def split(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+    # 1) ετοιμο split απο το merge_dataset.py (ανα group, σταθερο αναμεσα σε τρεξιματα)
+    if "split" in df.columns and df["split"].isin(["train", "val"]).all():
+        print("[*] split: στηλη split του αρχειου")
+        return df[df["split"] == "train"], df[df["split"] == "val"]
+    if len(df) < 5:
+        return df, df  # πολυ μικρο dataset, μονο για δοκιμη της ροης
+    # 2) ανα group, ωστε δειγματα του ιδιου χρηστη / της ιδιας ερωτησης να μη μοιραζονται σε train και val
+    if "group" in df.columns and (df["group"] != "").all():
+        print("[*] split: ανα group")
+        gss = GroupShuffleSplit(n_splits=1, test_size=VAL_RATIO, random_state=SEED)
+        tr, va = next(gss.split(df, groups=df["group"]))
+        return df.iloc[tr], df.iloc[va]
+    # 3) χωρις groups: τυχαιο
+    print("[*] split: τυχαιο (το αρχειο δεν εχει group)")
+    return train_test_split(df, test_size=VAL_RATIO, random_state=SEED)
+
+
 def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--data", default=None, help=f"default: {MERGED_PATH} αν υπαρχει, αλλιως {MANUAL_PATH}")
+    ap.add_argument("--epochs", type=int, default=EPOCHS)
+    ap.add_argument("--batch-size", type=int, default=BATCH_SIZE)
+    ap.add_argument("--min-examples", type=int, default=MIN_TASK_EXAMPLES,
+                    help="ελαχιστα δειγματα στο train για να θεωρηθει ενα task εκπαιδευμενο")
+    args = ap.parse_args()
+    data_path = args.data or (MERGED_PATH if os.path.exists(MERGED_PATH) else MANUAL_PATH)
+
     torch.manual_seed(SEED)
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = pick_device()
     print(f"[*] Device: {device}")
+    print(f"[*] Data: {data_path}")
 
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, revision=MODEL_REVISION)
-    df = pd.read_csv(DATA_PATH, dtype=str)
+    df = pd.read_csv(data_path, dtype=str, keep_default_na=False)
 
-    # train/val split (με fallback αν το dataset ειναι πολυ μικρο)
-    if len(df) >= 5:
-        train_df, val_df = train_test_split(df, test_size=VAL_RATIO, random_state=SEED)
-    else:
-        train_df, val_df = df, df
+    train_df, val_df = split(df)
     print(f"[*] train={len(train_df)}  val={len(val_df)}")
 
     train_ds = JournalDataset(train_df, tokenizer)
     # tasks με annotation στο train set, τα υπολοιπα heads μενουν ανεκπαιδευτα
-    trained_tasks = [t for t in TASKS if any(
+    annotated = {t: sum(
         (l[t] is not None) if t in MULTI_LABEL_TASKS else (l[t] != IGNORE) for l in train_ds.labels
-    )]
+    ) for t in TASKS}
+    print("[*] δειγματα ανα task: " + ", ".join(f"{t}={n}" for t, n in annotated.items()))
+    trained_tasks = [t for t in TASKS if annotated[t] >= args.min_examples]
+    too_few = [t for t in TASKS if 0 < annotated[t] < args.min_examples]
     print(f"[*] trained tasks: {trained_tasks}")
+    if too_few:
+        print(f"[!] λιγοτερα απο {args.min_examples} δειγματα, δεν δηλωνονται trained: {too_few}")
 
-    train_loader = DataLoader(train_ds, batch_size=BATCH_SIZE, shuffle=True)
-    val_loader = DataLoader(JournalDataset(val_df, tokenizer), batch_size=BATCH_SIZE)
+    train_loader = DataLoader(train_ds, batch_size=args.batch_size, shuffle=True)
+    val_loader = DataLoader(JournalDataset(val_df, tokenizer), batch_size=args.batch_size)
 
     model = WellnessMTLModel().to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=LR)
@@ -166,7 +208,7 @@ def main():
 
     best_val = -1.0  # κραταμε το καλυτερο checkpoint (οχι το τελευταιο epoch)
 
-    for epoch in range(1, EPOCHS + 1):
+    for epoch in range(1, args.epochs + 1):
         model.train()
         epoch_loss = 0.0
         for batch in train_loader:
@@ -194,15 +236,16 @@ def main():
             optimizer.step()
             epoch_loss += loss.item()
 
-        scores = evaluate(model, val_loader, device)
+        # μονο τα trained tasks μετρανε στο validation και στην επιλογη checkpoint
+        scores = {t: s for t, s in evaluate(model, val_loader, device).items() if t in trained_tasks}
         mean_score = sum(scores.values()) / len(scores) if scores else 0.0
         score_str = " | ".join(f"{t}:{s:.2f}" for t, s in scores.items())
-        print(f"Epoch {epoch:02d}/{EPOCHS} | loss={epoch_loss / len(train_loader):.4f} | val[{score_str}] | mean={mean_score:.3f}")
+        print(f"Epoch {epoch:02d}/{args.epochs} | loss={epoch_loss / len(train_loader):.4f} | val[{score_str}] | mean={mean_score:.3f}")
 
         # Best-checkpoint: αποθηκευουμε μονο οταν βελτιωνεται ο μεσος ορος του validation
         if mean_score > best_val:
             best_val = mean_score
-            torch.save(model.state_dict(), WEIGHTS_OUT)
+            torch.save({k: v.cpu() for k, v in model.state_dict().items()}, WEIGHTS_OUT)
             print(f"    [*] new best (mean={mean_score:.3f}) -> saved {WEIGHTS_OUT}")
 
     with open(CONFIG_OUT, "w", encoding="utf-8") as f:

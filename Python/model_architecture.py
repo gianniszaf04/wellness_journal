@@ -10,6 +10,15 @@ MODEL_REVISION = "b1092b2d17c5732186573ce8e76a01f45be927f0"
 HEAD_HIDDEN = 256
 
 
+def pick_device() -> torch.device:
+    # NVIDIA GPU, αλλιως η GPU του Mac (Apple Silicon, MPS), αλλιως CPU
+    if torch.cuda.is_available():
+        return torch.device("cuda")
+    if torch.backends.mps.is_available():
+        return torch.device("mps")
+    return torch.device("cpu")
+
+
 class TaskHead(nn.Module):
     # μικρο MLP ανα task, ωστε καθε task να εχει δικο του χωρο πανω απο το κοινο BERT
     def __init__(self, hidden: int, out_dim: int, dropout: float):
