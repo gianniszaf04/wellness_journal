@@ -269,7 +269,8 @@ applied_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 INSERT IGNORE INTO schema_migrations (migration) VALUES
 ('001_add_deletion_requested_at.sql'),
 ('002_add_irony_distortion_to_entries.sql'),
-('003_add_entry_emotions_distortions.sql');
+('003_add_entry_emotions_distortions.sql'),
+('004_add_shame_guilt_emotions.sql');
 
 
 
