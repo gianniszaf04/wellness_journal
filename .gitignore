@@ -6,3 +6,9 @@ storage/*.jsonl
 *.pt
 .DS_Store
 .claude/settings.local.json
+
+# datasets: κατεβαινουν απο τις πηγες στην κεφαλιδα καθε prepare_*.py
+Python/data/raw/
+Python/data/interim/
+Python/data/processed/
+Python/training/train.csv
