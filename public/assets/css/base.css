@@ -43,6 +43,8 @@
     --blob-2: #eeb4ae;
     --blob-3: #b9d3e6;
     --blob-4: #f6e2a0;
+    --chart-1: #c46a45;
+    --chart-muted: #e6d6c2;
     --grain: url("../img/grain-day.png");
     --serif: "EB Garamond", Georgia, serif;
 }
@@ -92,6 +94,8 @@
     --blob-2: #7d3e4c;
     --blob-3: #2d4f66;
     --blob-4: #6e5a24;
+    --chart-1: #cc7a52;
+    --chart-muted: #54483f;
     --grain: url("../img/grain-night.png");
 }
 

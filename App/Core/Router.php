@@ -321,20 +321,11 @@ class Router
             return;
         }
 
-        $safeStatus = htmlspecialchars((string) $statusCode, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-        $safeMessage = htmlspecialchars($message, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-
-        echo " <!doctype html>
-        <html lang='el'>
-        <head>
-            <meta charset='utf-8'> 
-            <title> Error {$safeStatus} </title>
-        </head>
-        <body> 
-        <h1>Error {$safeStatus}</h1>
-        <p>{$safeMessage}</p>
-        </body>
-        </html>
-        ";
+        error_page($statusCode, [
+            403 => 'Δεν έχεις πρόσβαση σε αυτή τη σελίδα.',
+            404 => 'Ίσως ο σύνδεσμος είναι λάθος ή η σελίδα δεν υπάρχει πια.',
+            405 => 'Αυτή η ενέργεια δεν γίνεται σε αυτή τη διεύθυνση.',
+            500 => 'Συνέβη ένα απρόσμενο σφάλμα από τη μεριά μας. Δοκίμασε ξανά σε λίγο.',
+        ][$statusCode] ?? $message);
     }
 }

@@ -7,7 +7,7 @@ function change_password(Http $http, string $current, string $new, string $confi
     $r = $http->form('account/password', [
         'current_password' => $current, 'new_password' => $new, 'new_password_confirmation' => $confirmation,
     ], 'profile');
-    preg_match('/<p style="color:(?:red|green);">([^<]+)/u', $http->get('profile')->body, $m);
+    preg_match('/class="flash flash--(?:error|success)"[^>]*>([^<]+)/u', $http->get('profile')->body, $m);
     return [$r->redirect(), $m[1] ?? null];
 }
 

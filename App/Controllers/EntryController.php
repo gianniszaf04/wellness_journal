@@ -15,101 +15,60 @@ class EntryController
 
     public function showEditor(): void
     {
-        $apiUrl = e(url('api/entries'));
-        $historyUrl = e(url('entry/history'));
         $today = date('Y-m-d');
-        $csrf =  e(csrf_token());
 
-        echo '<!doctype html>
-        <html lang="el"><head><meta charset="utf-8"><title>Νέα Καταγραφή</title></head>
-        <body>
-            <h1>Νέα Καταγραφή</h1>
-            <p><a href="' . $historyUrl . '">Ιστορικό</a></p>
-            <form id="entryForm">
-                <input type="date" id="entry_date" value="' . e($today) . '"><br>
-                <textarea id="body" rows="10" cols="50" placeholder="Γράψε για την ημέρα σου..." required></textarea><br>
-                <button type="submit">Αποθήκευση</button>
-            </form>
-            <p id="msg"></p>
-            <section id="support" role="alert" hidden></section>
-            <script>
-            // μηνυμα υποστηριξης με τις γραμμες βοηθειας (support του API)
-            function renderSupport(support) {
-                const box = document.getElementById("support");
-                box.replaceChildren();
-                box.hidden = !support;
-                if (!support) return;
-                const title = document.createElement("h2");
-                title.textContent = support.title;
-                const text = document.createElement("p");
-                text.textContent = support.message;
-                const list = document.createElement("ul");
-                for (const line of support.helplines) {
-                    const item = document.createElement("li");
-                    const link = document.createElement("a");
-                    link.href = "tel:" + line.number;
-                    link.textContent = line.number;
-                    item.append(link, " " + line.name + " (" + line.available + "). " + line.description);
-                    list.append(item);
-                }
-                box.append(title, text, list);
-            }
-            document.getElementById("entryForm").addEventListener("submit", async (ev) => {
-                ev.preventDefault();
-                const msg = document.getElementById("msg");
-                msg.textContent = "Αποθήκευση...";
-                renderSupport(null);
-                try {
-                    const res = await fetch("' . $apiUrl . '", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" , "X-CSRF-Token" : "' . $csrf . '"},
-                        body: JSON.stringify({
-                            body: document.getElementById("body").value,
-                            entry_date: document.getElementById("entry_date").value
-                        })
-                    });
-                    const data = await res.json();
-                    if (data.success) {
-                        msg.textContent = "Αποθηκεύτηκε! (id: " + data.data.id + ")";
-                        document.getElementById("body").value = "";
-                        renderSupport(data.support);
-                    } else {
-                        msg.textContent = "Σφάλμα: " + (data.error || "άγνωστο");
-                    }
-                } catch (err) {
-                    msg.textContent = "Σφάλμα δικτύου.";
-                }
-            });
-            </script>
-        </body></html>';
+        view('entry/editor', [
+            'title'      => 'Νέα σελίδα',
+            'scripts'    => ['api.js', 'editor.js'],
+            'today'      => $today,
+            'todayLabel' => greek_date($today),
+            'maxLength'  => 10000,
+            'prompts'    => [
+                'Τι σε έκανε να χαμογελάσεις σήμερα;',
+                'Τι σε βάραινε περισσότερο;',
+                'Για τι νιώθεις ευγνωμοσύνη;',
+                'Τι θα ήθελες να κάνεις αύριο για τον εαυτό σου;',
+            ],
+        ]);
     }
 
     public function history(): void
     {
         $userId = (int) current_user_id();
-        $entries = $this->entryModel->allForUser($userId, 50, 0);
+        $search = mb_substr(trim((string) ($_GET['q'] ?? '')), 0, 100);
+        $mood = query_int('mood', 0, 0, 5);
+        $perPage = 20;
 
-        echo '<!doctype html>
-        <html lang="el"><head><meta charset="utf-8"><title>Ιστορικό</title></head>
-        <body>
-            <h1>Ιστορικό Καταγραφών</h1>
-            <p><a href="' . e(url('entry/editor')) . '">Νέα Καταγραφή</a></p>';
+        $total = $this->entryModel->countHistory($userId, $search, $mood);
+        $pages = max(1, (int) ceil($total / $perPage));
+        $page = min(query_int('page', 1, 1, PHP_INT_MAX), $pages);
 
-        if (count($entries) === 0) {
-            echo '<p>Δεν υπάρχουν καταγραφές ακόμα.</p>';
-        } else {
-            echo '<ul>';
-            foreach ($entries as $entry) {
-                $viewUrl = e(url('entry/' . $entry['id']));
-                $date = e((string) $entry['entry_date']);
-                $emotion = $entry['emotion_emoji'] ? e((string) $entry['emotion_emoji']) . ' ' : '';
-                $preview = e(mb_substr((string) $entry['body'], 0, 60));
-                echo '<li>' . $emotion . '<a href="' . $viewUrl . '">' . $date . '</a> — ' . $preview . '...</li>';
-            }
-            echo '</ul>';
+        $months = [];
+        foreach ($this->entryModel->historyForUser($userId, $search, $mood, $perPage, ($page - 1) * $perPage) as $entry) {
+            $ts = strtotime((string) $entry['entry_date']);
+            $key = date('Y-m', $ts);
+            $months[$key]['label'] ??= greek_month((int) date('n', $ts)) . ' ' . date('Y', $ts);
+            $months[$key]['entries'][] = $entry;
         }
 
-        echo '</body></html>';
+        $link = static fn (int $p): string => url('entry/history') . '?' . http_build_query(array_filter(
+            ['q' => $search, 'mood' => $mood ?: null, 'page' => $p > 1 ? $p : null],
+            static fn ($v): bool => $v !== null && $v !== ''
+        ));
+
+        view('entry/history', [
+            'title'    => 'Ιστορικό',
+            'search'   => $search,
+            'mood'     => $mood,
+            'total'    => $total,
+            'all'      => $search === '' && $mood === 0 ? $total : $this->entryModel->countForUser($userId),
+            'months'   => $months,
+            'page'     => $page,
+            'pages'    => $pages,
+            'prevUrl'  => $page > 1 ? $link($page - 1) : null,
+            'nextUrl'  => $page < $pages ? $link($page + 1) : null,
+            'deleted'  => isset($_GET['deleted']),
+        ]);
     }
 
     public function view(string $id): void
@@ -119,26 +78,15 @@ class EntryController
 
         if ($entry === null) {
             http_response_code(404);
-            echo '<!doctype html><html lang="el"><head><meta charset="utf-8"><title>Δεν βρέθηκε</title></head>
-            <body><h1>Η καταγραφή δεν βρέθηκε</h1>
-            <p><a href="' . e(url('entry/history')) . '">Πίσω στο ιστορικό</a></p></body></html>';
+            view('entry/not-found', ['title' => 'Η σελίδα δεν βρέθηκε']);
             return;
         }
 
-        $emotion = $entry['emotion_name']
-            ? e((string) $entry['emotion_emoji']) . ' ' . e((string) $entry['emotion_name'])
-            : '—';
-
-        echo '<!doctype html>
-        <html lang="el"><head><meta charset="utf-8"><title>Καταγραφή</title></head>
-        <body>
-            <h1>Καταγραφή ' . e((string) $entry['entry_date']) . '</h1>
-            <p><strong>Συναίσθημα:</strong> ' . $emotion . '</p>
-            <p><strong>Sentiment:</strong> ' . e((string) ($entry['sentiment_score'] ?? '—')) . '</p>
-            <hr>
-            <p>' . nl2br(e((string) $entry['body'])) . '</p>
-            <hr>
-            <p><a href="' . e(url('entry/history')) . '">Πίσω στο ιστορικό</a></p>
-        </body></html>';
+        view('entry/show', [
+            'title'   => greek_date((string) $entry['entry_date']),
+            'scripts' => ['api.js', 'entry.js'],
+            'entry'   => $entry,
+            'mood'    => mood_level($entry['sentiment_score']),
+        ]);
     }
 }

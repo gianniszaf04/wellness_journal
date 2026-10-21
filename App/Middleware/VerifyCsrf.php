@@ -24,10 +24,7 @@ class VerifyCsrf {
             header('Content-type: application/json; charset=utf-8');
             echo json_encode(['success'=> false, 'error'=>'Άκυρο ή ληγμενο Csrf token'],JSON_UNESCAPED_UNICODE);
         }else {
-            http_response_code(403);
-            header('Content-type: text/html; charset=utf-8');
-            echo '<!doctype html><html lang="el"><head><meta charset="utf-8"><title>403</title></head>
-            <body><h1> 403- Άκυρο ή ληγμενο Csrf token</h1><p>Aνανέωσe την ιστοσελίδα και προσπάθησε ξανά.</p></body></html>';
+            error_page(403, 'Η σελίδα έμεινε ανοιχτή για πολλή ώρα ή άνοιξε σε άλλη καρτέλα. Ανανέωσέ τη και δοκίμασε ξανά.', 'Η σελίδα έληξε');
         }
         exit;
     }

@@ -108,6 +108,53 @@ class Entry{
         return (new EntryLabel())->attach($stmt->fetchAll(PDO::FETCH_ASSOC));
     }
 
+    private const MOOD_RANGES = [
+        5 => 'e.sentiment_score >= 0.6',
+        4 => 'e.sentiment_score >= 0.2 AND e.sentiment_score < 0.6',
+        3 => 'e.sentiment_score > -0.2 AND e.sentiment_score < 0.2',
+        2 => 'e.sentiment_score > -0.6 AND e.sentiment_score <= -0.2',
+        1 => 'e.sentiment_score <= -0.6',
+    ];
+
+    private function historyFilter(int $userId, string $search, int $mood): array {
+        $where = ['e.user_id = :user_id'];
+        $params = [':user_id' => $userId];
+        if ($search !== '') {
+            $where[] = 'e.body LIKE :search';
+            $params[':search'] = '%' . addcslashes($search, '%_\\') . '%';
+        }
+        if (isset(self::MOOD_RANGES[$mood])) {
+            $where[] = self::MOOD_RANGES[$mood];
+        }
+        return [implode(' AND ', $where), $params];
+    }
+
+    public function historyForUser(int $userId, string $search, int $mood, int $limit, int $offset) : array {
+        [$where, $params] = $this->historyFilter($userId, $search, $mood);
+        $stmt = $this->db->prepare(
+            "SELECT e.id, e.body, e.sentiment_score, e.entry_date, e.created_at,
+            em.name AS emotion_name
+            FROM entries e
+            LEFT JOIN emotions em ON em.id = e.dominant_emotion_id
+            WHERE {$where}
+            ORDER BY e.entry_date DESC, e.created_at DESC
+            LIMIT :lim OFFSET :off");
+        foreach ($params as $key => $value) {
+            $stmt->bindValue($key, $value, is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR);
+        }
+        $stmt->bindValue(':lim', max(1, $limit), PDO::PARAM_INT);
+        $stmt->bindValue(':off', max(0, $offset), PDO::PARAM_INT);
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function countHistory(int $userId, string $search, int $mood) : int {
+        [$where, $params] = $this->historyFilter($userId, $search, $mood);
+        $stmt = $this->db->prepare("SELECT COUNT(*) FROM entries e WHERE {$where}");
+        $stmt->execute($params);
+        return (int) $stmt->fetchColumn();
+    }
+
     public function countForUser(int $userId) : int {
         $stmt=$this->db->prepare('SELECT COUNT(*) FROM entries WHERE user_id = :user_id');
         $stmt->execute([':user_id' => $userId]);

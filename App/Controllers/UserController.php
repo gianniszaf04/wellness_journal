@@ -22,59 +22,24 @@ class UserController {
 
         if ($user === null ) {
             http_response_code(404);
-            echo '<!doctype html><html lang="el"><head><meta charset="utf-8"><title>Σφάλμα</title></head>
-            <body><h1>Ο χρήστης δνε βρέθηκε</h1></body></html>';
+            view('entry/not-found', ['title' => 'Δεν βρέθηκε']);
             return ;
         }
 
-        $profile =$this->profileModel->getOrCreate($userId);
-        $error = $this->pullFlash('error');
-        $passwordMessage = $this->pullFlash('password_error') . $this->pullFlash('password_success', 'green');
+        $profile = $this->profileModel->getOrCreate($userId);
+        $created = strtotime((string) $user['created_at']);
 
-        echo '<!doctype html>
-        <html lang="el"><head><meta charset="utf-8"><title>Προφίλ</title></head>
-        <body>
-            <h1>Το προφίλ μου</h1>
-            <p><a href="' . e(url('dashboard')) . '"> Πισω στο Dashboard</a></p>
-            <ul>
-                <li><strong>Username:</strong> ' . e((string) $user['username']) . '</li>
-                <li><strong>Ονοματεπωνυμο:</strong> ' . e((string) $user['name']) . '</li>
-                <li><strong>email:</strong> ' . e((string) $user['email']) . '</li>
-                <li><strong>Μελος απο:</strong> ' . e((string) $user['created_at']) . '</li>
-        </ul>
-        <h2>Προτιμησεις</h2>
-        <ul>
-            <li><strong>Θέμα:</strong> ' . e((string) ($profile['theme_background'] ?? 'default_theme')) . '</li>
-            <li><strong>Ηχος:</strong> ' . e((string) ($profile['sound'] ?? 'none')) . '</li>
-        </ul>
-        <hr>
-        <h2>Τα δεδομενα μου</h2>
-        <p><a href="' . e(url('account/export')) . '">Ληψη ολων των δεδομενων μου (JSON)</a></p>
-        <hr>
-        <h2>Αλλαγη κωδικου</h2>
-        ' . $passwordMessage . '
-        <p>Μετα την αλλαγη θα αποσυνδεθεις απο ολες τις αλλες συσκευες.</p>
-        <form method="POST" action="' . e(url('account/password')) . '">' . csrf_field() . '
-            <input type="password" name="current_password" placeholder="Τρεχων κωδικος" required><br>
-            <input type="password" name="new_password" placeholder="Νεος κωδικος (τουλαχιστον ' . User::MIN_PASSWORD_LENGTH . ' χαρακτηρες)" required><br>
-            <input type="password" name="new_password_confirmation" placeholder="Επαναληψη νεου κωδικου" required><br>
-            <button type="submit">Αλλαγη κωδικου</button>
-        </form>
-        <hr>
-        <h2>Διαγραφη λογαριασμου</h2>
-        ' . $error . '
-        <p>Αν διαγραψεις τον λογαριασμο σου:</p>
-        <ul>
-            <li>θα αποσυνδεθεις αμεσως και δεν θα μπορεις να τον χρησιμοποιεις,</li>
-            <li>μετα απο <strong>' . User::DELETION_GRACE_DAYS . ' ημερες</strong> ο λογαριασμος και <strong>ολες οι καταγραφες σου</strong> θα σβηστουν οριστικα,</li>
-            <li>μεχρι τοτε μπορεις να τον επαναφερεις συνδεομενος ξανα με το email και τον κωδικο σου.</li>
-        </ul>
-        <form method="POST" action="' . e(url('account/delete')) . '">' . csrf_field() . '
-            <input type="password" name="password" placeholder="Κωδικος για επιβεβαιωση" required><br>
-            <button type="submit">Διαγραφη λογαριασμου</button>
-        </form>
-        </body></html>
-        ';
+        view('profile', [
+            'title'           => 'Προφίλ',
+            'scripts'         => ['api.js', 'profile.js'],
+            'user'            => $user,
+            'memberSince'     => 'τον ' . mb_substr(greek_month((int) date('n', $created)), 0, -1) . ' του ' . date('Y', $created),
+            'pages'           => (new \App\Models\Entry())->countForUser($userId),
+            'theme'           => (string) ($profile['theme_background'] ?? UserProfile::DEFAULT_THEME),
+            'passwordError'   => flash('password_error'),
+            'passwordSuccess' => flash('password_success'),
+            'deleteError'     => flash('error'),
+        ]);
     }
 
     public function deleteAccount(): void {
@@ -166,14 +131,5 @@ class UserController {
             session_start();
         }
         $_SESSION[$key] = $message;
-    }
-
-    private function pullFlash(string $key, string $color = 'red'): string {
-        if (session_status() === PHP_SESSION_NONE) {
-            session_start();
-        }
-        $message = $_SESSION[$key] ?? '';
-        unset($_SESSION[$key]);
-        return $message !== '' ? '<p style="color:' . $color . ';">' . e($message) . '</p>' : '';
     }
 }

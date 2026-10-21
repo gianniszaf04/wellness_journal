@@ -3,6 +3,7 @@
 <head>
     <?php partial('head', ['title' => $title ?? null]); ?>
     <meta name="csrf-token" content="<?= e(csrf_token()) ?>">
+    <meta name="app-url" content="<?= e(rtrim(url(), '/')) ?>">
 </head>
 <body class="layout-app">
     <a class="skip-link" href="#main">Μετάβαση στο περιεχόμενο</a>

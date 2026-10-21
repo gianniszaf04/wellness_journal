@@ -28,10 +28,7 @@ class RateLimit {
                 header('Content-type: application/json; charset=utf-8');
                 echo json_encode(['success' => false , 'error' =>'Πάρα πολλές προσπάθειες. Προσπαθήστε ξανά αργότερα.'], JSON_UNESCAPED_UNICODE);
             }else {
-                header('Content-type: text/html; charset=utf-8');
-                echo '<!doctype html><html lang="el"><head><meta charset="utf-8"><title>429</title></head>
-                <body><h1>429 -Πάρα πολλές προσπάθειες. Προσπαθήστε ξανά αργότερα.</h1><p>Περίμενε λίγα λεπτά και ξαναπροσπάθησε αργότερα.</p></body></html>
-                ';
+                error_page(429, 'Έγιναν πολλές προσπάθειες σε λίγο χρόνο. Περίμενε λίγα λεπτά και δοκίμασε ξανά.');
             }
         exit ;
         }

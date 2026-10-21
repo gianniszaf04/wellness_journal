@@ -79,6 +79,33 @@ function partial(string $name, array $data = []): void {
     require BASE_PATH . "App/Views/partials/{$name}.php";
 }
 
+function error_page(int $status, string $message, ?string $heading = null): void {
+    $headings = [
+        403 => 'Δεν επιτρέπεται',
+        404 => 'Δεν βρήκα αυτή τη σελίδα',
+        405 => 'Αυτό δεν γίνεται εδώ',
+        429 => 'Πάρε μια ανάσα',
+        500 => 'Κάτι πήγε στραβά',
+    ];
+    $heading ??= $headings[$status] ?? 'Κάτι πήγε στραβά';
+
+    http_response_code($status);
+    if (!headers_sent()) {
+        header('Content-type: text/html; charset=utf-8');
+    }
+
+    ob_start();
+    try {
+        view('errors/error', ['title' => $heading, 'status' => $status, 'heading' => $heading, 'message' => $message], 'guest');
+        ob_end_flush();
+    } catch (\Throwable $e) {
+        ob_end_clean();
+        error_log('error_page render error: ' . $e->getMessage());
+        echo '<!doctype html><html lang="el"><head><meta charset="utf-8"><title>' . e($heading) . '</title></head><body><h1>'
+            . e($heading) . '</h1><p>' . e($message) . '</p></body></html>';
+    }
+}
+
 function flash(string $key): ?string {
     if (session_status() === PHP_SESSION_NONE) {
         session_start();
@@ -110,6 +137,11 @@ function greek_weekday(int $weekday, bool $short = false): string {
     $full = ['Κυριακή', 'Δευτέρα', 'Τρίτη', 'Τετάρτη', 'Πέμπτη', 'Παρασκευή', 'Σάββατο'];
     $abbr = ['Κυ', 'Δε', 'Τρ', 'Τε', 'Πε', 'Πα', 'Σα'];
     return ($short ? $abbr : $full)[$weekday] ?? '';
+}
+
+function greek_month(int $month): string {
+    return ['Ιανουάριος', 'Φεβρουάριος', 'Μάρτιος', 'Απρίλιος', 'Μάιος', 'Ιούνιος', 'Ιούλιος',
+        'Αύγουστος', 'Σεπτέμβριος', 'Οκτώβριος', 'Νοέμβριος', 'Δεκέμβριος'][$month - 1] ?? '';
 }
 
 function greek_date(string $date, bool $withWeekday = true): string {
