@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="el">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Λάμπα μέρας και νύχτας</title>
+<style>
+:root { --paper: #fbf4e9; --ink: #3d3027; --focus: #eeb4ae; }
+:root[data-theme="night"] { --paper: #231e1b; --ink: #f2e8dc; }
+body { margin: 0; min-height: 100vh; background: var(--paper); transition: background-color .4s; }
+.lamp {
+    position: fixed;
+    top: 0;
+    right: 26px;
+    z-index: 30;
+    width: 124px;
+    aspect-ratio: 296 / 724;
+    padding: 0;
+    border: 0;
+    background: none;
+    cursor: pointer;
+    transform-origin: 50% 0;
+}
+.lamp:focus-visible { outline: 2px dashed var(--focus); outline-offset: 4px; }
+.lamp__ink {
+    position: absolute;
+    inset: 0;
+    background: var(--ink);
+    -webkit-mask: url("lamp.png") center / contain no-repeat;
+    mask: url("lamp.png") center / contain no-repeat;
+    transition: background-color .4s;
+}
+.lamp__glass,
+.lamp__glow {
+    position: absolute;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity .6s;
+}
+.lamp__glass {
+    left: 21%;
+    top: 0;
+    width: 52%;
+    height: 16.5%;
+    background: radial-gradient(ellipse at 50% 55%, #fff1c4, #ffcf7a 45%, #f39d4a 85%);
+    border-radius: 2px 2px 6px 6px;
+}
+.lamp__glow {
+    left: 52%;
+    top: 8%;
+    width: 480px;
+    height: 480px;
+    transform: translate(-50%, -50%);
+    background: radial-gradient(circle, rgb(255 200 125 / .6), rgb(255 170 90 / .18) 38%, transparent 66%);
+}
+[data-theme="night"] .lamp__glass { opacity: .92; animation: flicker 5s ease-in-out infinite; }
+[data-theme="night"] .lamp__glow { opacity: 1; animation: flicker 5s ease-in-out infinite; }
+.lamplight {
+    position: fixed;
+    inset: 0;
+    z-index: 25;
+    pointer-events: none;
+    background: radial-gradient(circle at calc(100% - 88px) 100px, rgb(255 190 120 / .2), transparent 45%);
+    mix-blend-mode: screen;
+    opacity: 0;
+    transition: opacity .6s;
+}
+[data-theme="night"] .lamplight { opacity: 1; }
+.lamp.is-pulled { animation: pull 1.3s ease-out; }
+@keyframes pull {
+    0% { transform: translateY(0) rotate(0); }
+    14% { transform: translateY(14px) rotate(0); }
+    32% { transform: translateY(0) rotate(5deg); }
+    52% { transform: rotate(-3.5deg); }
+    72% { transform: rotate(2deg); }
+    88% { transform: rotate(-.8deg); }
+    100% { transform: rotate(0); }
+}
+@keyframes flicker {
+    0%, 100% { filter: brightness(1); }
+    45% { filter: brightness(1.08); }
+    55% { filter: brightness(.94); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .lamp.is-pulled, [data-theme="night"] .lamp__glass, [data-theme="night"] .lamp__glow { animation: none; }
+}
+</style>
+</head>
+<body>
+<button class="lamp" type="button" data-theme-toggle aria-label="Άναψε ή σβήσε τη λάμπα" title="Τράβηξε τη λάμπα">
+    <span class="lamp__glow"></span>
+    <span class="lamp__glass"></span>
+    <span class="lamp__ink"></span>
+</button>
+<div class="lamplight" aria-hidden="true"></div>
+
+<script>
+document.querySelectorAll('[data-theme-toggle]').forEach(btn => btn.addEventListener('click', () => {
+    const lamp = document.querySelector('.lamp');
+    lamp.classList.remove('is-pulled');
+    void lamp.offsetWidth;
+    lamp.classList.add('is-pulled');
+    setTimeout(() => {
+        const root = document.documentElement;
+        root.dataset.theme = root.dataset.theme === 'night' ? 'day' : 'night';
+    }, 180);
+}));
+</script>
+</body>
+</html>

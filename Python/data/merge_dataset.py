@@ -170,6 +170,9 @@ def main():
             if r.get("lang", "el") != "el":
                 s["αμετάφραστα"] += 1
                 continue
+            if r.get("label_check") == "rejected":
+                s["απορρίφθηκαν (έλεγχος labels)"] += 1
+                continue
             text = _SPACES.sub(" ", r.get("text") or "").strip()
             if not text:
                 s["κενά"] += 1

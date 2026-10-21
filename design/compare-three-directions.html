@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="el">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Σύγκριση στυλ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@500;700&family=Manrope:wght@400;500;600;700&family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; }
+body { margin: 0; font-family: system-ui, sans-serif; background: #e9e7e2; color: #222; }
+svg { display: block; }
+.top {
+    position: sticky; top: 0; z-index: 10;
+    display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+    padding: 10px 16px; background: #222; color: #eee; font-size: 14px;
+}
+.top strong { margin-right: auto; }
+.top a { color: #eee; border: 1px solid #555; border-radius: 999px; padding: 4px 12px; text-decoration: none; }
+.top a:hover { background: #eee; color: #222; }
+
+.dir { padding: 40px 16px 56px; position: relative; overflow: hidden; }
+.dir__head { max-width: 1180px; margin: 0 auto 22px; }
+.dir__tag { display: inline-block; font: 600 13px/1 system-ui; letter-spacing: .08em; text-transform: uppercase; padding: 6px 10px; border-radius: 6px; background: rgb(0 0 0 / .75); color: #fff; }
+.dir__desc { margin: 10px 0 0; max-width: 720px; font: 15px/1.5 system-ui; color: rgb(0 0 0 / .7); }
+.pair { max-width: 1180px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1.25fr; gap: 28px; align-items: start; }
+@media (max-width: 900px) { .pair { grid-template-columns: minmax(0, 1fr); } }
+
+.a {
+    --bg: #f7faf5; --surface: #ffffff; --text: #1f2d24; --muted: #66756b; --line: #e3ebe2;
+    --primary: #2f9e5b; --primary-ink: #fff; --soft: #e6f4ea;
+    --m5: #22a55a; --m4: #8bc93f; --m3: #ffc533; --m2: #ff8a3d; --m1: #f25c6b;
+    background: radial-gradient(circle at 10% 0%, #e3f5e2, transparent 45%), radial-gradient(circle at 100% 100%, #fff1d6, transparent 45%), var(--bg);
+    color: var(--text);
+    font-family: "Manrope", system-ui, sans-serif;
+}
+.a h1, .a h2, .a .brand-name { font-family: "Comfortaa", "Manrope", sans-serif; font-weight: 700; }
+.a .card { background: var(--surface); border-radius: 24px; box-shadow: 0 1px 2px rgb(30 60 40 / .05), 0 12px 32px rgb(30 60 40 / .08); padding: 26px; }
+.a .input { width: 100%; padding: 13px 16px; border: 1.5px solid var(--line); border-radius: 14px; background: #fbfdfb; font: inherit; }
+.a .btn { display: inline-flex; justify-content: center; padding: 13px 22px; border-radius: 999px; background: var(--primary); color: var(--primary-ink); font-weight: 700; border: 0; text-decoration: none; }
+.a .chip { background: var(--soft); color: var(--primary); border-radius: 999px; padding: 3px 12px; font-size: 13px; font-weight: 600; }
+.a .label { font-size: 14px; font-weight: 600; color: var(--muted); }
+
+.b {
+    --bg: #f8f2e8; --surface: rgb(255 253 248 / .86); --text: #3b3530; --muted: #857a6e; --line: #e5d9c7;
+    --primary: #6e9c78; --primary-ink: #fff; --soft: #eef3ea;
+    --m5: #5da874; --m4: #a7cb7a; --m3: #f2cf6b; --m2: #f0a26e; --m1: #e57f86;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "EB Garamond", Georgia, serif;
+    font-size: 18px;
+}
+.b .wash { position: absolute; inset: 0; width: 100%; height: 100%; opacity: .55; pointer-events: none; }
+.b .dir__head, .b .pair { position: relative; }
+.b h1, .b h2, .b .brand-name { font-weight: 500; }
+.b .card { background: var(--surface); border-radius: 18px; box-shadow: 0 10px 40px rgb(120 90 50 / .12); padding: 28px; backdrop-filter: blur(2px); }
+.b .input { width: 100%; padding: 10px 14px; border: 1px solid var(--line); border-radius: 12px; background: rgb(255 255 255 / .7); font: inherit; }
+.b .btn { display: inline-flex; justify-content: center; padding: 11px 22px; border-radius: 999px; background: var(--primary); color: var(--primary-ink); font: 500 1.05rem "EB Garamond", serif; border: 0; text-decoration: none; }
+.b .chip { background: var(--soft); color: #5a7f63; border-radius: 999px; padding: 1px 12px; font-size: 15px; font-style: italic; }
+.b .label { font-size: 16px; color: var(--muted); font-style: italic; }
+
+.c {
+    --bg: #f5f3ee; --surface: #ffffff; --text: #23262b; --muted: #7b7f86; --line: #e6e3dc;
+    --primary: #2f3b35; --primary-ink: #fff; --soft: #eef0ec;
+    --m5: #5c8f6e; --m4: #a3b98a; --m3: #d9c48a; --m2: #d79e78; --m1: #c47d7d;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Manrope", system-ui, sans-serif;
+}
+.c h1, .c h2, .c .brand-name { font-weight: 700; letter-spacing: -.02em; }
+.c .card { background: var(--surface); border-radius: 16px; border: 1px solid var(--line); padding: 26px; }
+.c .input { width: 100%; padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; background: #fff; font: inherit; }
+.c .btn { display: inline-flex; justify-content: center; padding: 12px 20px; border-radius: 10px; background: var(--primary); color: var(--primary-ink); font-weight: 600; border: 0; text-decoration: none; }
+.c .chip { border: 1px solid var(--line); color: var(--muted); border-radius: 999px; padding: 2px 10px; font-size: 13px; }
+.c .label { font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+
+.login { display: grid; gap: 6px; }
+.login .art { max-width: 300px; margin: 0 auto; width: 100%; }
+.brand-name { text-align: center; font-size: 1.6rem; margin: 6px 0 2px; }
+.brand-sub { text-align: center; color: var(--muted); margin: 0 0 14px; }
+.form { display: grid; gap: 14px; }
+.field { display: grid; gap: 6px; }
+.alt { text-align: center; color: var(--muted); margin: 14px 0 0; font-size: .95em; }
+.alt a { color: var(--primary); font-weight: 600; }
+
+.dash { display: grid; gap: 18px; }
+.greet { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: end; gap: 12px; }
+.greet p { margin: 0; color: var(--muted); }
+.greet h1 { margin: 2px 0 0; font-size: 1.9rem; }
+.row { display: grid; grid-template-columns: 1.05fr 1fr; gap: 18px; }
+@media (max-width: 620px) { .row { grid-template-columns: minmax(0, 1fr); } }
+.card h2 { margin: 0 0 8px; font-size: 1.15rem; }
+.streak { text-align: center; margin: 4px 0 0; color: var(--muted); }
+.streak strong { font-size: 1.8rem; color: var(--primary); }
+.week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; text-align: center; margin-top: 10px; }
+.week span { font-size: 12px; color: var(--muted); }
+.dot { width: 26px; height: 26px; border-radius: 50%; margin: 0 auto 4px; }
+.dot.empty { border: 1.5px dashed var(--line); }
+.stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; text-align: center; }
+.stats b { display: block; font-size: 1.4rem; }
+.stats small { color: var(--muted); }
+.entry { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 10px 0; border-top: 1px solid var(--line); }
+.entry:first-of-type { border-top: 0; }
+.entry b { font-weight: 600; display: block; font-size: .95em; }
+.entry em { display: block; color: var(--muted); font-style: normal; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: .9em; }
+.b .entry b { font-style: italic; font-weight: 500; }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+        <filter id="wc" x="-20%" y="-20%" width="140%" height="140%">
+            <feTurbulence type="fractalNoise" baseFrequency=".035" numOctaves="3" seed="2" result="t"/>
+            <feDisplacementMap in="SourceGraphic" in2="t" scale="10" result="d"/>
+            <feGaussianBlur in="d" stdDeviation="1.2"/>
+        </filter>
+        <filter id="wc-wash" x="-30%" y="-30%" width="160%" height="160%">
+            <feTurbulence type="fractalNoise" baseFrequency=".009" numOctaves="3" seed="9" result="t"/>
+            <feDisplacementMap in="SourceGraphic" in2="t" scale="170"/>
+            <feGaussianBlur stdDeviation="16"/>
+        </filter>
+    </defs>
+    <symbol id="leafA" viewBox="0 0 24 24"><path d="M4 20 C4 10 10 4 20 4 C20 14 14 20 4 20 Z"/></symbol>
+</svg>
+
+<div class="top">
+    <strong>Σύγκριση: τρεις κατευθύνσεις</strong>
+    <a href="#a">Α · Φρέσκο</a>
+    <a href="#b">Β · Ακουαρέλα</a>
+    <a href="#c">Γ · Minimal</a>
+</div>
+
+<section class="dir a" id="a">
+    <div class="dir__head">
+        <span class="dir__tag">Α · Φρέσκο και φωτεινό</span>
+        <p class="dir__desc">Λευκό και ανοιχτό πράσινο, στρογγυλή γραμματοσειρά (Comfortaa στους τίτλους, Manrope στο κείμενο), μαλακές σκιές. Δέντρο με γεμάτη φυλλωσιά και χρωματιστά φύλλα για κάθε μέρα.</p>
+    </div>
+    <div class="pair">
+        <div class="card login">
+            <div class="art" data-tree="a"></div>
+            <div class="brand-name">Ημερολόγιο Ευεξίας</div>
+            <p class="brand-sub">κάθε μέρα, ένα φύλλο</p>
+            <div class="form">
+                <div class="field"><span class="label">Email</span><input class="input" placeholder="το email σου"></div>
+                <div class="field"><span class="label">Κωδικός</span><input class="input" type="password" placeholder="ο κωδικός σου"></div>
+                <a class="btn" href="#a">Σύνδεση</a>
+            </div>
+            <p class="alt">Πρώτη φορά εδώ; <a href="#a">Δημιούργησε λογαριασμό</a></p>
+        </div>
+        <div class="dash" data-dash></div>
+    </div>
+</section>
+
+<section class="dir b" id="b">
+    <svg class="wash" viewBox="0 0 1200 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+        <g filter="url(#wc-wash)">
+            <ellipse cx="40" cy="150" rx="330" ry="250" fill="#a8cf9a"/>
+            <ellipse cx="300" cy="-20" rx="260" ry="150" fill="#f6dc93" opacity=".8"/>
+            <ellipse cx="1180" cy="80" rx="320" ry="230" fill="#f4b9a0" opacity=".8"/>
+            <ellipse cx="1140" cy="840" rx="380" ry="260" fill="#f6dc93"/>
+            <ellipse cx="60" cy="860" rx="340" ry="250" fill="#a9c9e6"/>
+            <ellipse cx="1220" cy="460" rx="160" ry="260" fill="#c9bfe8" opacity=".7"/>
+        </g>
+    </svg>
+    <div class="dir__head">
+        <span class="dir__tag">Β · Απαλή ακουαρέλα</span>
+        <p class="dir__desc">Κρατάει τη γραμματοσειρά EB Garamond και τις νερομπογιές στο φόντο, αλλά πιο φωτεινά και παστέλ. Δέντρο ζωγραφισμένο με ακουαρέλα, χωρίς φεγγάρι, ήλιους και παλιωμένο χαρτί.</p>
+    </div>
+    <div class="pair">
+        <div class="card login">
+            <div class="art" data-tree="b"></div>
+            <div class="brand-name">Ημερολόγιο Ευεξίας</div>
+            <p class="brand-sub"><em>κάθε μέρα, ένα φύλλο</em></p>
+            <div class="form">
+                <div class="field"><span class="label">Email</span><input class="input" placeholder="το email σου"></div>
+                <div class="field"><span class="label">Κωδικός</span><input class="input" type="password" placeholder="ο κωδικός σου"></div>
+                <a class="btn" href="#b">Άνοιξε το ημερολόγιο</a>
+            </div>
+            <p class="alt">Πρώτη φορά εδώ; <a href="#b">Ξεκίνα ένα νέο ημερολόγιο</a></p>
+        </div>
+        <div class="dash" data-dash></div>
+    </div>
+</section>
+
+<section class="dir c" id="c">
+    <div class="dir__head">
+        <span class="dir__tag">Γ · Minimal και ήρεμο</span>
+        <p class="dir__desc">Πολύς χώρος, φασκόμηλο και άμμος, καθαρή γραμματοσειρά (Manrope). Το δέντρο ως απλό σχέδιο: κάθε μέρα μια κουκκίδα στο χρώμα της διάθεσης.</p>
+    </div>
+    <div class="pair">
+        <div class="card login">
+            <div class="art" data-tree="c"></div>
+            <div class="brand-name">Ημερολόγιο Ευεξίας</div>
+            <p class="brand-sub">κάθε μέρα, ένα φύλλο</p>
+            <div class="form">
+                <div class="field"><span class="label">Email</span><input class="input" placeholder="το email σου"></div>
+                <div class="field"><span class="label">Κωδικός</span><input class="input" type="password" placeholder="ο κωδικός σου"></div>
+                <a class="btn" href="#c">Σύνδεση</a>
+            </div>
+            <p class="alt">Πρώτη φορά εδώ; <a href="#c">Δημιούργησε λογαριασμό</a></p>
+        </div>
+        <div class="dash" data-dash></div>
+    </div>
+</section>
+
+<script>
+const moods = [4, 5, 3, 4, 0, 2, 3, 4, 5, 5, 4, 3, 1, 2, 3, 4, 0, 5, 4, 3, 4, 5, 5, 4, 2, 3, 4, 5, 4, 5];
+
+function rng(seed) {
+    return () => {
+        seed = seed + 0x6D2B79F5 | 0;
+        let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+        t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+        return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+}
+
+function slots(n, cx, cy, rx, ry, seed) {
+    const r = rng(seed);
+    const pts = Array.from({ length: n }, (_, i) => {
+        const rad = Math.sqrt((i + .5) / n);
+        const a = i * 2.39996;
+        return [cx + Math.cos(a) * rad * rx, cy + Math.sin(a) * rad * ry, a];
+    });
+    return pts.map(p => [p, r()]).sort((x, y) => x[1] - y[1]).map(x => x[0]);
+}
+
+const canopy = [[150, 96, 62], [98, 118, 46], [202, 118, 46], [124, 70, 42], [178, 70, 42], [150, 134, 50], [82, 146, 30], [218, 146, 30], [150, 50, 34]];
+
+function trunk(fill, extra = '') {
+    return `
+        <path d="M137 252 C141 214 143 186 146 150 L154 150 C157 186 159 214 163 252 Z" fill="${fill}" ${extra}/>
+        <path d="M149 196 C130 180 114 168 96 150 M151 186 C170 170 188 160 206 146 M150 170 C140 150 132 132 126 110 M151 166 C162 146 170 128 176 108" stroke="${fill}" stroke-width="7" stroke-linecap="round" fill="none" ${extra}/>
+        <path d="M140 250 C128 254 116 256 104 256 M160 250 C172 254 184 256 196 256" stroke="${fill}" stroke-width="5" stroke-linecap="round" fill="none" ${extra}/>`;
+}
+
+function treeA() {
+    const greens = ['#bfe5ad', '#a6d98f', '#cdebbe'];
+    const pos = slots(30, 150, 98, 92, 66, 7);
+    const leaves = moods.map((m, i) => {
+        if (!m) return '';
+        const [x, y, a] = pos[i];
+        return `<use href="#leafA" x="${x - 9}" y="${y - 9}" width="18" height="18" fill="var(--m${m})" transform="rotate(${(a * 57) % 360} ${x} ${y})"/>`;
+    }).join('');
+    return `<svg viewBox="0 0 300 270">
+        <ellipse cx="150" cy="258" rx="90" ry="9" fill="#dfeedd"/>
+        ${trunk('#9a6b4b')}
+        ${canopy.map(([x, y, r], i) => `<circle cx="${x}" cy="${y}" r="${r}" fill="${greens[i % 3]}"/>`).join('')}
+        ${leaves}
+    </svg>`;
+}
+
+function treeB() {
+    const greens = ['#9fcf95', '#b9dca6', '#87c08a'];
+    const pos = slots(30, 150, 98, 92, 66, 7);
+    const leaves = moods.map((m, i) => {
+        if (!m) return '';
+        const [x, y, a] = pos[i];
+        return `<use href="#leafA" x="${x - 10}" y="${y - 10}" width="20" height="20" fill="var(--m${m})" opacity=".92" transform="rotate(${(a * 57) % 360} ${x} ${y})"/>`;
+    }).join('');
+    return `<svg viewBox="0 0 300 270">
+        <g filter="url(#wc)">
+            <ellipse cx="150" cy="258" rx="95" ry="10" fill="#e8dcc2" opacity=".8"/>
+            ${trunk('#a98266', 'opacity=".9"')}
+            ${canopy.map(([x, y, r], i) => `<circle cx="${x}" cy="${y}" r="${r}" fill="${greens[i % 3]}" opacity=".55"/>`).join('')}
+            ${leaves}
+        </g>
+    </svg>`;
+}
+
+function treeC() {
+    const pos = slots(30, 150, 96, 86, 66, 7);
+    const dots = moods.map((m, i) => {
+        const [x, y] = pos[i];
+        return m
+            ? `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="8" fill="var(--m${m})"/>`
+            : `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="4" fill="none" stroke="#c9c5bb" stroke-width="1.5"/>`;
+    }).join('');
+    return `<svg viewBox="0 0 300 270">
+        <g stroke="#2f3b35" stroke-width="3" stroke-linecap="round" fill="none">
+            <path d="M150 256 L150 150"/>
+            <path d="M150 200 L112 166 M150 186 L190 154 M150 160 L150 126"/>
+            <path d="M118 256 L182 256"/>
+        </g>
+        ${dots}
+    </svg>`;
+}
+
+const trees = { a: treeA, b: treeB, c: treeC };
+document.querySelectorAll('[data-tree]').forEach(el => { el.innerHTML = trees[el.dataset.tree](); });
+
+const week = [['Δε', 2], ['Τρ', 3], ['Τε', 4], ['Πε', 0], ['Πα', 5], ['Σα', 5], ['Κυ', 4]];
+const entries = [['Σήμερα, 08:40', 5, 'χαρά', 'Ξύπνησα νωρίς και πήγα μια βόλτα δίπλα στη θάλασσα πριν τη δουλειά.'],
+    ['Χθες, 22:15', 4, 'ηρεμία', 'Ήσυχη μέρα. Διάβασα λίγο και μίλησα με τη μαμά μου στο τηλέφωνο.'],
+    ['Κυριακή, 19:02', 2, 'άγχος', 'Σκέφτομαι πολύ την παρουσίαση της Τρίτης και δεν μπορώ να χαλαρώσω.']];
+
+document.querySelectorAll('[data-dash]').forEach(el => {
+    const dir = el.closest('.dir').id;
+    el.innerHTML = `
+        <div class="greet">
+            <div><p>Τρίτη, 21 Οκτωβρίου</p><h1>Καλημέρα, Ελένη</h1></div>
+            <a class="btn" href="#${dir}">Γράψε τη σημερινή σελίδα</a>
+        </div>
+        <div class="row">
+            <div class="card">
+                <h2>Το δέντρο σου</h2>
+                <div>${trees[dir]()}</div>
+                <p class="streak"><strong>12</strong> μέρες στη σειρά</p>
+            </div>
+            <div class="card">
+                <h2>Η εβδομάδα σου</h2>
+                <div class="stats">
+                    <div><b>48</b><small>σελίδες</small></div>
+                    <div><b>7,2</b><small>διάθεση</small></div>
+                    <div><b>Ηρεμία</b><small>κυρίαρχο</small></div>
+                </div>
+                <div class="week">${week.map(([d, m]) => `<div><div class="dot${m ? '' : ' empty'}" style="${m ? `background:var(--m${m})` : ''}"></div><span>${d}</span></div>`).join('')}</div>
+            </div>
+        </div>
+        <div class="card">
+            <h2>Πρόσφατες σελίδες</h2>
+            ${entries.map(([d, m, e, t]) => `<div class="entry"><svg width="20" height="20" fill="var(--m${m})"><use href="#leafA"/></svg><div style="min-width:0"><b>${d}</b><em>${t}</em></div><span class="chip">${e}</span></div>`).join('')}
+        </div>`;
+});
+</script>
+</body>
+</html>

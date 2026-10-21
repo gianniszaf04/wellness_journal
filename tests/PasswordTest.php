@@ -49,7 +49,7 @@ function register_with(string $password): array
     $suffix = bin2hex(random_bytes(5));
     $http = new Http();
     $http->form('register', ['username' => 't' . $suffix, 'name' => 'Test', 'email' => "t{$suffix}@" . TEST_EMAIL_DOMAIN, 'password' => $password], 'register');
-    preg_match('/<p style="color:red;">([^<]+)/u', $http->get('register')->body, $m);
+    preg_match('/class="flash flash--error"[^>]*>([^<]+)/u', $http->get('register')->body, $m);
     $stmt = db()->prepare('SELECT COUNT(*) FROM users WHERE username = :u');
     $stmt->execute([':u' => 't' . $suffix]);
     return [(int) $stmt->fetchColumn() === 1, $m[1] ?? null];

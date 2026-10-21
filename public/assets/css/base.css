@@ -1,0 +1,194 @@
+:root {
+    color-scheme: light;
+    --paper: #fbf4e9;
+    --card: #fffaf2;
+    --text: #3d3027;
+    --muted: #8a7a6c;
+    --line: #eadfce;
+    --accent: #e3956f;
+    --accent-hover: #db8862;
+    --accent-ink: #fffaf2;
+    --focus: #eeb4ae;
+    --peach: #f8d3b8;
+    --mustard: #f1c75b;
+    --sage: #a9c49a;
+    --rose: #eeb4ae;
+    --sky: #b9d3e6;
+    --note: #fde8a0;
+    --mood-5: #7fb069;
+    --mood-4: #b9d27a;
+    --mood-3: #f2c94c;
+    --mood-2: #f4a261;
+    --mood-1: #e07a6a;
+    --ink: #3d3027;
+    --input-bg: #fffdf8;
+    --placeholder: #b5a796;
+    --soft: #fdf1e6;
+    --link: #9a6a4f;
+    --dashed: #e3d5c1;
+    --future: #d6c8b4;
+    --on-mood: #3d3027;
+    --note-ink: #3d3027;
+    --note-label: #9b7c2d;
+    --dot: rgb(170 140 110 / .28);
+    --stat-1: #fdf1e6;
+    --stat-2: #f1f6ea;
+    --stat-3: #fdf6dd;
+    --nav-current-bg: #f8d3b8;
+    --nav-current-ink: #3d3027;
+    --hl-mix: 75%;
+    --shadow: rgb(90 60 30 / .09);
+    --blob-opacity: .55;
+    --blob-1: #f8d3b8;
+    --blob-2: #eeb4ae;
+    --blob-3: #b9d3e6;
+    --blob-4: #f6e2a0;
+    --grain: url("../img/grain-day.png");
+    --serif: "EB Garamond", Georgia, serif;
+}
+
+:root[data-theme="night"] {
+    color-scheme: dark;
+    --paper: #231e1b;
+    --card: #332c27;
+    --text: #f2e8dc;
+    --muted: #b9a999;
+    --line: #4a4038;
+    --accent: #e9a07f;
+    --accent-hover: #f0b293;
+    --accent-ink: #2a2018;
+    --focus: #e8a8a2;
+    --peach: #d9a286;
+    --mustard: #e3bf5c;
+    --sage: #93b083;
+    --rose: #d99a94;
+    --sky: #8fb0c9;
+    --note: #e8d48f;
+    --mood-5: #8fc27a;
+    --mood-4: #c6dc84;
+    --mood-3: #f1cd57;
+    --mood-2: #f3a96d;
+    --mood-1: #ea8a7c;
+    --ink: #f2e8dc;
+    --input-bg: #2c2622;
+    --placeholder: #8a7b6d;
+    --soft: #43372f;
+    --link: #ecb595;
+    --dashed: #4f443b;
+    --future: #5e5248;
+    --on-mood: #2a2018;
+    --note-ink: #3a3025;
+    --note-label: #7a6326;
+    --dot: rgb(255 235 210 / .07);
+    --stat-1: #44362d;
+    --stat-2: #373e2f;
+    --stat-3: #443b28;
+    --nav-current-bg: #553d30;
+    --nav-current-ink: #f6d3bd;
+    --hl-mix: 38%;
+    --shadow: rgb(0 0 0 / .35);
+    --blob-opacity: .4;
+    --blob-1: #8c4b30;
+    --blob-2: #7d3e4c;
+    --blob-3: #2d4f66;
+    --blob-4: #6e5a24;
+    --grain: url("../img/grain-night.png");
+}
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+html {
+    -webkit-text-size-adjust: 100%;
+}
+
+body {
+    margin: 0;
+    min-height: 100vh;
+    font-family: var(--serif);
+    font-size: 19px;
+    line-height: 1.55;
+    color: var(--text);
+    background-color: var(--paper);
+    background-image:
+        var(--grain),
+        radial-gradient(circle, var(--dot) 1.1px, transparent 1.4px);
+    background-size: auto, 26px 26px;
+    -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3 {
+    margin: 0;
+    font-weight: 600;
+    line-height: 1.2;
+}
+
+p {
+    margin: 0 0 12px;
+}
+
+a {
+    color: var(--link);
+    text-decoration-color: color-mix(in srgb, var(--link) 40%, transparent);
+    text-underline-offset: 3px;
+}
+
+button, input, select, textarea {
+    font: inherit;
+    color: inherit;
+}
+
+svg {
+    display: block;
+}
+
+:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 3px;
+}
+
+.muted { color: var(--muted); }
+
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+}
+
+.skip-link {
+    position: absolute;
+    left: 16px;
+    top: -100px;
+    z-index: 100;
+    padding: 6px 14px;
+    border-radius: 999px;
+    background: var(--accent);
+    color: var(--accent-ink);
+}
+
+.skip-link:focus { top: 10px; }
+
+.sprite {
+    position: absolute;
+    width: 0;
+    height: 0;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+    animation-duration: .25s;
+    animation-timing-function: ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    * {
+        transition: none !important;
+        animation: none !important;
+    }
+}

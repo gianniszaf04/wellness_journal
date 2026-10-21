@@ -17,42 +17,11 @@ class AuthController {
         $this->userModel=new User();
     }
     public function showLoginForm(): void {
-        $error =$this->pullError();
-        $info = $this->pullInfo();
-
-        echo '<!doctype html>
-        <html lang="el"><head><meta charset="utf-8"><title>Συνδεση</title></head>
-        <body>
-            <h1>Συνδεση</h1>
-            ' . $info . $error . '
-            <form method="POST"  action= "'  .url('login') . '" > ' . csrf_field() . '
-                <input type="email" name="email" placeholder="Email" required><br>
-                <input type="password" name="password" placeholder="Κωδικος" required><br>
-                <button type="submit">Συνδεση</button>
-            </form>
-            <a href= "'  .url('register') . '" >Εγγραφη</a>
-        </body></html>    
-        ';
+        view('auth/login', ['title' => 'Σύνδεση'], 'guest');
     }
 
     public function showRegisterForm(): void {
-        $error =$this->pullError();
-
-        echo '<!doctype html>
-        <html lang="el"><head><meta charset="utf-8"><title>Εγγραφη</title></head>
-        <body>
-        <h1>Εγγραφη</h1>
-        ' . $error . '
-        <form method="POST" action="'  .url('register') . '" >  ' . csrf_field() . '
-        <input type="text" name="username" placeholder="Username" required><br>
-        <input type="text" name="name" placeholder="Ονοματεπωνυμο" required><br>
-        <input type="email" name="email" placeholder="Email" required><br>
-        <input type="password" name="password" placeholder="Κωδικος" required><br>
-        <button type="submit">Εγγραφη</button>
-        </form>
-            <a href="'  .url('login') . '" >Συνδεση</a>
-        </body></html>
-        ';
+        view('auth/register', ['title' => 'Εγγραφή'], 'guest');
     }
 
     public function register(): void {
@@ -106,6 +75,7 @@ class AuthController {
             $this->redirectWithError('/register', 'Η εγγραφή δεν ολοκληρώθηκε. Δοκίμασε ξανά.');
             return;
         }
+        $_SESSION['success'] = 'Ο λογαριασμός σου δημιουργήθηκε. Συνδέσου για να ξεκινήσεις.';
         redirect('/login');
     }
 
@@ -162,20 +132,7 @@ class AuthController {
             redirect('/login');
         }
 
-        echo '<!doctype html>
-        <html lang="el"><head><meta charset="utf-8"><title>Επαναφορα λογαριασμου</title></head>
-        <body>
-            <h1>Ο λογαριασμος σου ειναι προγραμματισμενος για διαγραφη</h1>
-            <p>Ζητησες διαγραφη του λογαριασμου σου. Θα σβηστει οριστικα, μαζι με ολες τις καταγραφες σου,
-            στις <strong>' . e(date('d/m/Y', strtotime($date))) . '</strong>.</p>
-            <p>Θελεις να τον επαναφερεις;</p>
-            <form method="POST" action="' . e(url('account/restore')) . '">' . csrf_field() . '
-                <button type="submit">Επαναφορα λογαριασμου</button>
-            </form>
-            <form method="POST" action="' . e(url('account/restore/cancel')) . '">' . csrf_field() . '
-                <button type="submit">Οχι, συνεχισε τη διαγραφη</button>
-            </form>
-        </body></html>';
+        view('auth/restore', ['title' => 'Επαναφορά λογαριασμού', 'deletionDate' => (string) $date], 'guest');
     }
 
     public function restore(): void {
@@ -264,22 +221,4 @@ class AuthController {
 
     }
 
-    private function pullError(): string {
-        if (session_status() === PHP_SESSION_NONE) {
-            session_start();
-        }
-        $error = $_SESSION['error'] ?? '';
-        unset($_SESSION['error']);
-        return $error !== '' ? '<p style="color:red;">' . e($error) . '</p>' : '';
-    }
-
-    private function pullInfo(): string {
-        if (session_status() === PHP_SESSION_NONE) {
-            session_start();
-        }
-        $info = $_SESSION['info'] ?? '';
-        unset($_SESSION['info']);
-        return $info !== '' ? '<p style="color:green;">' . e($info) . '</p>' : '';
-    }
-    
 }
