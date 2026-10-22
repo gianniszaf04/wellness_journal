@@ -12,3 +12,4 @@ Python/data/raw/
 Python/data/interim/
 Python/data/processed/
 Python/training/train.csv
+Python/mtl_config.json

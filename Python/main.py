@@ -130,7 +130,8 @@ def run_mtl(text: str) -> dict:
     # Συνεχες sentiment score [-1,1] = σταθμισμενο αθροισμα της κατανομης
     sentiment_score = _round_score(sum(p.item() * w for p, w in zip(sent_p, SENTIMENT_WEIGHTS)))
     sent_idx = int(torch.argmax(sent_p))
-    dominant = max(emo_probs, key=emo_probs.get) if emo_probs else None
+    emotions = _above(emo_probs)
+    dominant = emotions[0] if emotions else None
     distortion_detected = int(torch.argmax(dist_p)) == 1
 
     return {
@@ -145,7 +146,7 @@ def run_mtl(text: str) -> dict:
             },
             "emotion": {
                 "label": dominant,
-                "labels": _above(emo_probs),
+                "labels": emotions,
                 "probabilities": emo_probs,
             },
             "irony": {
