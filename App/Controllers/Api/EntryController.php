@@ -166,10 +166,13 @@ class EntryController
             error_log('AI Service Error: ' . $e->getMessage());
         }
 
-        // σε edit γραφουμε παντα, ωστε αν το AI ειναι κατω να μη μεινει η αναλυση του παλιου κειμενου
-        if ($replaceEntities || $sentimentScore !== null || $dominantEmotionId !== null) {
-            try {
-                $db = (new \Database())->getConnection();
+        $db = null;
+        try {
+            $db = (new \Database())->getConnection();
+            $db->beginTransaction();
+
+            // σε edit γραφουμε παντα, ωστε αν το AI ειναι κατω να μη μεινει η αναλυση του παλιου κειμενου
+            if ($replaceEntities || $sentimentScore !== null || $dominantEmotionId !== null) {
                 $stmt = $db->prepare(
                     'UPDATE entries SET sentiment_score = :sentiment, dominant_emotion_id = :emotion,
                     irony_probability = :irony, distortion_probability = :distortion
@@ -184,21 +187,13 @@ class EntryController
                     ':id' => $id,
                     ':user_id' => $userId
                 ]);
-            } catch (\PDOException $e) {
-                error_log('Entry sentiment update error: ' . $e->getMessage());
             }
-        }
 
-        if ($replaceEntities || $emotions !== [] || $distortionTypes !== []) {
-            try {
+            if ($replaceEntities || $emotions !== [] || $distortionTypes !== []) {
                 (new EntryLabel())->replace($id, $emotions, $distortionTypes);
-            } catch (\PDOException $e) {
-                error_log('Entry labels update error: ' . $e->getMessage());
             }
-        }
 
-        if ($replaceEntities || !empty($entities)) {
-            try {
+            if ($replaceEntities || !empty($entities)) {
                 $entryEntityModel = new EntryEntity();
                 $previous = [];
 
@@ -217,16 +212,23 @@ class EntryController
                     }
                 }
 
-                $entryEntityModel->createBatch($id, $entitiesToInsert);
+                if (!$entryEntityModel->createBatch($id, $entitiesToInsert)) {
+                    throw new \RuntimeException('EntryEntity::createBatch failed');
+                }
 
                 // και τα παλια entities, για να βγει απο τα relations ο,τι δεν αναφερεται πια
                 (new EmotionEntityRelation())->recalculate(
                     $userId,
                     array_merge($previous, $entryEntityModel->findForEntry($id))
                 );
-            } catch (\Exception $e) {
-                error_log('Entity processing error: ' . $e->getMessage());
             }
+
+            $db->commit();
+        } catch (\Exception $e) {
+            if ($db !== null && $db->inTransaction()) {
+                $db->rollBack();
+            }
+            error_log('Entry analysis persist error: ' . $e->getMessage());
         }
 
         try {

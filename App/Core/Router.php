@@ -62,15 +62,12 @@ class Router
     }
 
     public function group ( array $options, \Closure $callback ): void  {
-        $groupMiddleware = $options ['middleware'] ?? [];
+        $savedGroup = $this->groupMiddleware;
         $saved = $this ->pendingMiddleware;
 
-        $proxy = clone $this;
-        $proxy -> pendingMiddleware = $groupMiddleware;
-
-        $this->groupMiddleware = $groupMiddleware;
+        $this->groupMiddleware = array_merge($savedGroup, $options['middleware'] ?? []);
         $callback ($this);
-        $this->groupMiddleware = [];
+        $this->groupMiddleware = $savedGroup;
         $this-> pendingMiddleware = $saved;
 
     }

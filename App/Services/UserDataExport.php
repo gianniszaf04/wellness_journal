@@ -27,7 +27,7 @@ class UserDataExport
         return [
             'exported_at' => date(DATE_ATOM),
             'user' => $this->fetchOne(
-                'SELECT id, username, name, email, status, deletion_requested_at, created_at, updated_at
+                'SELECT id, username, name, email, email_verified_at, status, deletion_requested_at, created_at, updated_at
                 FROM users WHERE id = :user_id', $userId),
             'profile' => [
                 'theme' => $profile['theme_background'] ?? null,

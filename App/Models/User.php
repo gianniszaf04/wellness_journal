@@ -95,6 +95,17 @@ class User {
         return (int) $stmt->fetchColumn() > 0;
     }
 
+    public function markEmailVerified(int $id): bool {
+        try {
+            $stmt = $this->db->prepare('UPDATE users SET email_verified_at = NOW() WHERE id = :id AND email_verified_at IS NULL');
+            $stmt->execute([':id' => $id]);
+            return $stmt->rowCount() > 0;
+        } catch (\PDOException $e) {
+            error_log('User::markEmailVerified error: ' . $e->getMessage());
+            return false;
+        }
+    }
+
     public function updatePassword(int $id, string $password): bool {
         if (self::passwordError($password) !== null) {
             return false;

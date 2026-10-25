@@ -14,4 +14,6 @@
     <button class="btn btn--block" type="submit">Σύνδεση</button>
 </form>
 
+<p class="auth__alt"><a href="<?= e(url('password/forgot')) ?>">Ξέχασες τον κωδικό σου;</a></p>
+
 <p class="auth__alt">Πρώτη φορά εδώ; <a href="<?= e(url('register')) ?>">Ξεκίνα το ημερολόγιό σου</a></p>

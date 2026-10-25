@@ -15,6 +15,7 @@ username VARCHAR(50) NOT NULL,
 name VARCHAR(70) NOT NULL,
 email VARCHAR(254) NOT NULL,
 processed_email VARCHAR(254) GENERATED ALWAYS AS (LOWER(TRIM(email))) STORED,
+email_verified_at TIMESTAMP NULL DEFAULT NULL,
 password_hash VARCHAR(255) NOT NULL,
 status TINYINT UNSIGNED NOT NULL DEFAULT 1,
 deletion_requested_at TIMESTAMP NULL DEFAULT NULL, -- ποτε ζητηθηκε διαγραφη, οριστικη διαγραφη μετα απο 30 ημερες
@@ -29,6 +30,19 @@ CONSTRAINT check_email CHECK (CHAR_LENGTH(TRIM(email))>0)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE INDEX IF NOT EXISTS idx_users_deletion ON users(deletion_requested_at);
+
+CREATE TABLE IF NOT EXISTS verification_codes (
+user_id BIGINT UNSIGNED NOT NULL,
+purpose VARCHAR(20) NOT NULL,
+code_hash VARCHAR(255) NOT NULL,
+expires_at DATETIME NOT NULL,
+attempts TINYINT UNSIGNED NOT NULL DEFAULT 0,
+sent_at DATETIME NOT NULL,
+
+PRIMARY KEY (user_id, purpose),
+CONSTRAINT check_verification_purpose CHECK (purpose IN ('email', 'password')),
+CONSTRAINT fk_verification_codes_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS  user_profiles(
 user_id BIGINT UNSIGNED PRIMARY KEY,
@@ -270,7 +284,9 @@ INSERT IGNORE INTO schema_migrations (migration) VALUES
 ('001_add_deletion_requested_at.sql'),
 ('002_add_irony_distortion_to_entries.sql'),
 ('003_add_entry_emotions_distortions.sql'),
-('004_add_shame_guilt_emotions.sql');
+('004_add_shame_guilt_emotions.sql'),
+('005_add_email_verification.sql'),
+('006_generalize_verification_codes.sql');
 
 
 

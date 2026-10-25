@@ -38,6 +38,7 @@ class RequireLogin {
 
         return $user !== null
             && (int) $user['status'] !== 0
+            && !empty($user['email_verified_at'])
             && empty($user['deletion_requested_at'])
             && hash_equals(User::passwordFingerprint((string) $user['password_hash']), (string) ($_SESSION['password_fp'] ?? ''));
     }

@@ -30,7 +30,14 @@ $router-> group(['middleware' => [RequireGuest::class, VerifyCsrf::class]], func
     $router->middleware([RateLimit::class])->post('/login',   [AuthController::class , 'login' ], 'auth.login.attempt');
     $router->get('/register', [AuthController::class,'showRegisterForm'], 'auth.register.form');
     $router->middleware([RateLimit::class])->post('/register',[AuthController::class,'register'],  'auth.register.attempt');
-    $router->get('/account/restore',          [AuthController::class, 'showRestore'],   'auth.restore.form');
+    $router->get('/verify-email', [AuthController::class, 'showVerify'], 'auth.verify.form');
+    $router->middleware([RateLimit::class])->post('/verify-email', [AuthController::class, 'verify'], 'auth.verify');
+    $router->middleware([RateLimit::class])->post('/verify-email/resend', [AuthController::class, 'resendVerification'], 'auth.verify.resend');
+    $router->get('/password/forgot', [AuthController::class, 'showForgot'], 'auth.password.forgot.form');
+    $router->middleware([RateLimit::class])->post('/password/forgot', [AuthController::class, 'forgot'], 'auth.password.forgot');
+    $router->get('/password/reset', [AuthController::class, 'showReset'], 'auth.password.reset.form');
+    $router->middleware([RateLimit::class])->post('/password/reset', [AuthController::class, 'reset'], 'auth.password.reset');
+    $router->get('/account/restore',      [AuthController::class, 'showRestore'],   'auth.restore.form');
     $router->post('/account/restore',         [AuthController::class, 'restore'],       'auth.restore');
     $router->post('/account/restore/cancel',  [AuthController::class, 'cancelRestore'], 'auth.restore.cancel');
 });
