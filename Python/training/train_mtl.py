@@ -14,9 +14,12 @@ import argparse
 import json
 import os
 import sys
+import time
+from datetime import datetime
 
 import pandas as pd
 import torch
+from sklearn.metrics import f1_score
 from sklearn.model_selection import GroupShuffleSplit, train_test_split
 from torch.utils.data import Dataset, DataLoader
 from transformers import AutoTokenizer
@@ -32,6 +35,7 @@ MERGED_PATH = os.path.join(HERE, "train.csv")
 MANUAL_PATH = os.path.join(HERE, "dataset.csv")
 WEIGHTS_OUT = os.path.join(ROOT, "mtl_model.pt")
 CONFIG_OUT = os.path.join(ROOT, "mtl_config.json")
+RUNS_DIR = os.path.join(ROOT, "runs")
 
 MAX_LEN = 128
 BATCH_SIZE = 16
@@ -42,6 +46,8 @@ SEED = 42
 IGNORE = -100  # δειγματα χωρις annotation σε ενα task -> δεν μετρανε στο loss
 # λιγοτερα δειγματα με annotation -> το task δεν δηλωνεται trained, οποτε το PHP δεν δειχνει τα αποτελεσματα του
 MIN_TASK_EXAMPLES = 50
+THRESHOLD_GRID = [round(0.05 * i, 2) for i in range(1, 20)]
+MIN_VAL_POSITIVES = 5
 
 
 def _blank(value) -> bool:
@@ -124,14 +130,17 @@ def task_mask(batch, t, device):
 
 
 @torch.no_grad()
-def evaluate(model, loader, device) -> dict:
-    """Accuracy για τα single-label, micro-F1 για τα multi-label (αγνοωντας οσα δεν εχουν annotation)."""
+def evaluate(model, loader, device) -> tuple[dict, dict, dict]:
+    """Macro-F1 για τα single-label, micro-F1 για τα multi-label (αγνοωντας οσα δεν εχουν annotation)."""
     model.eval()
     correct = {t: 0 for t in TASKS}
     total = {t: 0 for t in TASKS}
     tp = {t: 0 for t in MULTI_LABEL_TASKS}
     fp = {t: 0 for t in MULTI_LABEL_TASKS}
     fn = {t: 0 for t in MULTI_LABEL_TASKS}
+    y_true = {t: [] for t in TASKS if t not in MULTI_LABEL_TASKS}
+    y_pred = {t: [] for t in TASKS if t not in MULTI_LABEL_TASKS}
+    outputs = {t: {"probs": [], "y": [], "covered": []} for t in MULTI_LABEL_TASKS}
     for batch in loader:
         logits = model(batch["input_ids"].to(device), batch["attention_mask"].to(device))
         for t in TASKS:
@@ -142,14 +151,21 @@ def evaluate(model, loader, device) -> dict:
             total[t] += int(mask.sum())
             if t in MULTI_LABEL_TASKS:
                 covered = batch[f"{t}_mask"].to(device)[mask]  # labels που δεν καλυπτει η πηγη δεν μετρανε
-                pred = (torch.sigmoid(logits[t][mask]) >= MULTI_LABEL_THRESHOLD).float()
+                probs = torch.sigmoid(logits[t][mask])
+                pred = (probs >= MULTI_LABEL_THRESHOLD).float()
                 tp[t] += int((pred * y * covered).sum())
                 fp[t] += int((pred * (1 - y) * covered).sum())
                 fn[t] += int(((1 - pred) * y * covered).sum())
+                outputs[t]["probs"].append(probs.cpu())
+                outputs[t]["y"].append(y.cpu())
+                outputs[t]["covered"].append(covered.cpu())
             else:
-                correct[t] += int((logits[t][mask].argmax(dim=-1) == y).sum())
-
-    scores = {}
+                pred = logits[t][mask].argmax(dim=-1)
+                correct[t] += int((pred == y).sum())
+                y_true[t] += y.cpu().tolist()
+                y_pred[t] += pred.cpu().tolist()
+                
+    scores, accuracy = {}, {}
     for t in TASKS:
         if not total[t]:
             continue  # task χωρις annotation στο validation -> δεν μπαινει στον μεσο ορο
@@ -158,8 +174,48 @@ def evaluate(model, loader, device) -> dict:
             # χωρις κανενα θετικο label και καμια προβλεψη το F1 ειναι τελειο
             scores[t] = 2 * tp[t] / denom if denom else 1.0
         else:
-            scores[t] = correct[t] / total[t]
-    return scores
+            scores[t] = f1_score(y_true[t], y_pred[t], average="macro", zero_division=0)
+            accuracy[t] = correct[t] / total[t]
+    outputs = {t: {k: torch.cat(v) for k, v in o.items()} for t, o in outputs.items() if o["probs"]}
+    return scores, accuracy, outputs
+
+
+def micro_f1(probs, y, covered, thresholds) -> float:
+    pred = (probs >= thresholds).float()
+    tp = (pred * y * covered).sum()
+    denom = 2 * tp + (pred * (1 - y) * covered).sum() + ((1 - pred) * y * covered).sum()
+    return float(2 * tp / denom) if denom else 1.0
+
+
+def tune_thresholds(t: str, output: dict, labels: list[str]) -> dict:
+    thresholds = {}
+    for i, label in enumerate(LABEL_SETS[t]):
+        if label not in labels:
+            continue
+        rows = output["covered"][:, i] > 0
+        y = output["y"][rows, i]
+        probs = output["probs"][rows, i]
+        if y.sum() < MIN_VAL_POSITIVES:
+            thresholds[label] = MULTI_LABEL_THRESHOLD
+            continue
+        best_th, best_f1 = MULTI_LABEL_THRESHOLD, -1.0
+        for th in THRESHOLD_GRID:
+            pred = (probs >= th).float()
+            tp = float((pred * y).sum())
+            denom = 2 * tp + float((pred * (1 - y)).sum()) + float(((1 - pred) * y).sum())
+            f1 = 2 * tp / denom if denom else 0.0
+            if f1 > best_f1:
+                best_th, best_f1 = th, f1
+        thresholds[label] = best_th
+    return thresholds
+
+
+def class_weights(labels: list[int], n_classes: int) -> list[float] | None:
+    counts = [sum(1 for y in labels if y == c) for c in range(n_classes)]
+    total = sum(counts)
+    if not total:
+        return None
+    return [round(total / (n_classes * n), 4) if n else 0.0 for n in counts]
 
 
 def split(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
@@ -180,6 +236,11 @@ def split(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     return train_test_split(df, test_size=VAL_RATIO, random_state=SEED)
 
 
+def save_run(run_dir: str, run: dict) -> None:
+    with open(os.path.join(run_dir, "run.json"), "w", encoding="utf-8") as f:
+        json.dump(run, f, ensure_ascii=False, indent=2)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--data", default=None, help=f"default: {MERGED_PATH} αν υπαρχει, αλλιως {MANUAL_PATH}")
@@ -187,8 +248,10 @@ def main():
     ap.add_argument("--batch-size", type=int, default=BATCH_SIZE)
     ap.add_argument("--min-examples", type=int, default=MIN_TASK_EXAMPLES,
                     help="ελαχιστα δειγματα στο train για να θεωρηθει ενα task εκπαιδευμενο")
+    ap.add_argument("--note", default="", help="περιγραφη του run, π.χ. τι αλλαξε απο το προηγουμενο")
     args = ap.parse_args()
     data_path = args.data or (MERGED_PATH if os.path.exists(MERGED_PATH) else MANUAL_PATH)
+    started = time.time()
 
     torch.manual_seed(SEED)
     device = pick_device()
@@ -221,15 +284,60 @@ def main():
         if missing:
             print(f"[!] {t}: λιγοτερες απο {args.min_examples} γραμμες καλυπτουν {missing}, δεν δηλωνονται trained")
 
+    sentiment_weights = class_weights([l["sentiment"] for l in train_ds.labels], HEAD_DIMS["sentiment"])
+    if sentiment_weights:
+        print("[*] βαρη sentiment: " + ", ".join(
+            f"{l}={w}" for l, w in zip(LABEL_SETS["sentiment"], sentiment_weights)))
+
+    run_dir = os.path.join(RUNS_DIR, datetime.now().strftime("%Y-%m-%d_%H%M%S"))
+    os.makedirs(run_dir, exist_ok=True)
+    sources = {}
+    if "source" in df.columns:
+        for name, part in (("train", train_df), ("val", val_df)):
+            sources[name] = part["source"].value_counts().to_dict()
+    run = {
+        "started": datetime.now().isoformat(timespec="seconds"),
+        "note": args.note,
+        "model": {"name": MODEL_NAME, "revision": MODEL_REVISION},
+        "device": str(device),
+        "data": {
+            "path": os.path.relpath(data_path, ROOT),
+            "train": len(train_df),
+            "val": len(val_df),
+            "sources": sources,
+            "annotated_train": annotated,
+        },
+        "params": {
+            "epochs": args.epochs,
+            "batch_size": args.batch_size,
+            "lr": LR,
+            "max_len": MAX_LEN,
+            "seed": SEED,
+            "min_examples": args.min_examples,
+            "multi_label_threshold": MULTI_LABEL_THRESHOLD,
+            "sentiment_class_weights": dict(zip(LABEL_SETS["sentiment"], sentiment_weights or [])),
+            "selection_metric": "macro-F1 (single-label), micro-F1 (multi-label)",
+        },
+        "trained_tasks": trained_tasks,
+        "trained_labels": trained_labels,
+        "epochs": [],
+        "best": None,
+    }
+    save_run(run_dir, run)
+    print(f"[*] Run -> {run_dir}")
+
     train_loader = DataLoader(train_ds, batch_size=args.batch_size, shuffle=True)
     val_loader = DataLoader(JournalDataset(val_df, tokenizer), batch_size=args.batch_size)
 
     model = WellnessMTLModel().to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=LR)
     ce = torch.nn.CrossEntropyLoss(ignore_index=IGNORE)
+    sentiment_weight = torch.tensor(sentiment_weights, device=device) if sentiment_weights else None
+    ce_sentiment = torch.nn.CrossEntropyLoss(weight=sentiment_weight, ignore_index=IGNORE)
     bce = torch.nn.BCEWithLogitsLoss(reduction="none")  # ανα label, για τη μασκα καλυψης
 
     best_val = -1.0  # κραταμε το καλυτερο checkpoint (οχι το τελευταιο epoch)
+    best_outputs = {}
 
     for epoch in range(1, args.epochs + 1):
         model.train()
@@ -249,6 +357,8 @@ def main():
                 if t in MULTI_LABEL_TASKS:
                     covered = batch[f"{t}_mask"].to(device)
                     task_loss = (bce(logits[t], y) * covered).sum() / covered.sum()
+                elif t == "sentiment":
+                    task_loss = ce_sentiment(logits[t], y)
                 else:
                     task_loss = ce(logits[t], y)
                 loss = task_loss if loss is None else loss + task_loss
@@ -261,24 +371,59 @@ def main():
             epoch_loss += loss.item()
 
         # μονο τα trained tasks μετρανε στο validation και στην επιλογη checkpoint
-        scores = {t: s for t, s in evaluate(model, val_loader, device).items() if t in trained_tasks}
+        all_scores, accuracy, outputs = evaluate(model, val_loader, device)
+        scores = {t: s for t, s in all_scores.items() if t in trained_tasks}
         mean_score = sum(scores.values()) / len(scores) if scores else 0.0
+        mean_loss = epoch_loss / len(train_loader)
         score_str = " | ".join(f"{t}:{s:.2f}" for t, s in scores.items())
-        print(f"Epoch {epoch:02d}/{args.epochs} | loss={epoch_loss / len(train_loader):.4f} | val[{score_str}] | mean={mean_score:.3f}")
+        print(f"Epoch {epoch:02d}/{args.epochs} | loss={mean_loss:.4f} | val[{score_str}] | mean={mean_score:.3f}")
 
         # Best-checkpoint: αποθηκευουμε μονο οταν βελτιωνεται ο μεσος ορος του validation
         if mean_score > best_val:
             best_val = mean_score
             torch.save({k: v.cpu() for k, v in model.state_dict().items()}, WEIGHTS_OUT)
             print(f"    [*] new best (mean={mean_score:.3f}) -> saved {WEIGHTS_OUT}")
+            run["best"] = {"epoch": epoch, "mean": round(mean_score, 4)}
+            best_outputs = outputs
+
+        run["epochs"].append({
+            "epoch": epoch,
+            "loss": round(mean_loss, 4),
+            "val": {t: round(s, 4) for t, s in scores.items()},
+            "val_untrained": {t: round(s, 4) for t, s in all_scores.items() if t not in trained_tasks},
+            "val_accuracy": {t: round(a, 4) for t, a in accuracy.items()},
+            "mean": round(mean_score, 4),
+            "minutes": round((time.time() - started) / 60, 1),
+        })
+        save_run(run_dir, run)
+
+    thresholds, threshold_f1 = {}, {}
+    for t in trained_labels:
+        if t not in best_outputs:
+            continue
+        thresholds[t] = tune_thresholds(t, best_outputs[t], trained_labels[t])
+        per_label = torch.tensor([thresholds[t].get(l, MULTI_LABEL_THRESHOLD) for l in LABEL_SETS[t]])
+        output = best_outputs[t]
+        default_f1 = micro_f1(output["probs"], output["y"], output["covered"], MULTI_LABEL_THRESHOLD)
+        tuned_f1 = micro_f1(output["probs"], output["y"], output["covered"], per_label)
+        threshold_f1[t] = {"default": round(default_f1, 4), "tuned": round(tuned_f1, 4)}
+        print(f"[*] {t} ορια: " + ", ".join(f"{l}={th}" for l, th in thresholds[t].items()))
+        print(f"[*] {t} micro-F1 (val, best epoch): οριο 0.5={default_f1:.3f} | ορια ανα label={tuned_f1:.3f}")
+    run["thresholds"] = thresholds
+    run["threshold_micro_f1"] = threshold_f1
 
     with open(CONFIG_OUT, "w", encoding="utf-8") as f:
         json.dump({"model_name": MODEL_NAME, "max_len": MAX_LEN, "labels": LABEL_SETS, "trained_tasks": trained_tasks,
-                   "trained_labels": trained_labels}, f, ensure_ascii=False, indent=2)
+                   "trained_labels": trained_labels, "thresholds": thresholds}, f, ensure_ascii=False, indent=2)
+
+    run["finished"] = datetime.now().isoformat(timespec="seconds")
+    run["minutes"] = round((time.time() - started) / 60, 1)
+    save_run(run_dir, run)
 
     print(f"[+] Best val mean: {best_val:.3f}")
     print(f"[+] Weights -> {WEIGHTS_OUT}")
     print(f"[+] Config  -> {CONFIG_OUT}")
+    print(f"[+] Run     -> {run_dir}")
 
 
 if __name__ == "__main__":

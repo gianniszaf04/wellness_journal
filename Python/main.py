@@ -1,6 +1,7 @@
 import json
 import os
 import threading
+import time
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
@@ -37,6 +38,9 @@ NER_ENABLED = os.getenv("NER_ENABLED", "1") != "0"
 # Επαληθευση μεσω OpenAI μονο οταν ενεργοποιηθει ρητα (default: κλειστη)
 OPENAI_VERIFY = os.getenv("OPENAI_VERIFY", "0") == "1"
 MAX_LEN = 128
+CHUNK_STRIDE = 32
+MAX_CHUNKS = 32
+BINARY_TASKS = ("irony", "distortion", "risk")
 
 
 device = pick_device()
@@ -47,19 +51,19 @@ _verify_log_lock = threading.Lock()
 
 
 
-def _trained() -> tuple[set, dict]:
+def _trained() -> tuple[set, dict, dict]:
     # απο το mtl_config.json του training. Αλλα labels απο τα τωρινα -> τα indices δεν ταιριαζουν
     try:
         with open(CONFIG_PATH, encoding="utf-8") as f:
             config = json.load(f)
     except (OSError, ValueError) as e:
         print(f"[!] WARNING: cannot read '{CONFIG_PATH}' ({e}) - risk head disabled.")
-        return set(), {}
+        return set(), {}, {}
     if config.get("labels") != LABEL_SETS:
         print(f"[!] WARNING: labels in '{CONFIG_PATH}' differ from labels.py - retrain the model.")
-        return set(), {}
+        return set(), {}, {}
     # trained_labels λειπει σε παλια config -> ολα τα labels των trained tasks
-    return set(config.get("trained_tasks", [])), config.get("trained_labels", {})
+    return set(config.get("trained_tasks", [])), config.get("trained_labels", {}), config.get("thresholds", {})
 
 
 @asynccontextmanager
@@ -69,11 +73,12 @@ async def lifespan(app: FastAPI):
     ml["trained"] = False
     ml["trained_tasks"] = set()
     ml["trained_labels"] = {}
+    ml["thresholds"] = {}
     if os.path.exists(WEIGHTS_PATH):
         try:
             model.load_state_dict(torch.load(WEIGHTS_PATH, map_location=device, weights_only=True))
             ml["trained"] = True
-            ml["trained_tasks"], ml["trained_labels"] = _trained()
+            ml["trained_tasks"], ml["trained_labels"], ml["thresholds"] = _trained()
             print(f"[+] Loaded trained weights: {WEIGHTS_PATH} (tasks: {sorted(ml['trained_tasks'])})")
         except RuntimeError as e:
             # βαρη απο παλια αρχιτεκτονικη (π.χ. πριν τα MLP heads) -> θελει νεο training
@@ -82,6 +87,9 @@ async def lifespan(app: FastAPI):
         print(f"[!] WARNING: '{WEIGHTS_PATH}' not found - running on un-trained heads.")
     model.eval()
     ml["model"] = model
+    warmup_start = time.perf_counter()
+    run_mtl("Σήμερα ήταν μια συνηθισμένη μέρα.")
+    print(f"[+] Warm-up: {time.perf_counter() - warmup_start:.2f}s")
 
     if NER_ENABLED:
         load_ner()
@@ -104,22 +112,36 @@ def _multi_probs(task: str, labels: list, probs) -> dict:
     return {l: round(p.item(), 4) for l, p in zip(labels, probs) if keep is None or l in keep}
 
 
-def _above(probs: dict) -> list:
-    return [l for l, p in sorted(probs.items(), key=lambda x: -x[1]) if p >= MULTI_LABEL_THRESHOLD]
+def _above(task: str, probs: dict) -> list:
+    thresholds = ml["thresholds"].get(task, {})
+    return [l for l, p in sorted(probs.items(), key=lambda x: -x[1]) if p >= thresholds.get(l, MULTI_LABEL_THRESHOLD)]
 
 
 @torch.no_grad()
 def run_mtl(text: str) -> dict:
     enc = ml["tokenizer"](
         text, truncation=True, padding="max_length",
-        max_length=MAX_LEN, return_tensors="pt",
-    ).to(device)
+        max_length=MAX_LEN, stride=CHUNK_STRIDE,
+        return_overflowing_tokens=True, return_tensors="pt",
+    )
+    input_ids = enc["input_ids"][:MAX_CHUNKS].to(device)
+    attention_mask = enc["attention_mask"][:MAX_CHUNKS].to(device)
+    chunks = input_ids.shape[0]
 
-    logits = ml["model"](enc["input_ids"], enc["attention_mask"])
-    probs = {
-        task: (torch.sigmoid(out) if task in MULTI_LABEL_TASKS else F.softmax(out, dim=-1))[0]
+    logits = ml["model"](input_ids, attention_mask)
+    chunk_probs = {
+        task: torch.sigmoid(out) if task in MULTI_LABEL_TASKS else F.softmax(out, dim=-1)
         for task, out in logits.items()
     }
+    tokens = attention_mask.sum(dim=1, keepdim=True).float()
+    probs = {}
+    for task, p in chunk_probs.items():
+        if task in MULTI_LABEL_TASKS:
+            probs[task] = p.max(dim=0).values
+        elif task in BINARY_TASKS:
+            probs[task] = p[int(torch.argmax(p[:, 1]))]
+        else:
+            probs[task] = (p * tokens).sum(dim=0) / tokens.sum()
 
     sent_p = probs["sentiment"]
     iro_p = probs["irony"]
@@ -130,14 +152,14 @@ def run_mtl(text: str) -> dict:
     # Συνεχες sentiment score [-1,1] = σταθμισμενο αθροισμα της κατανομης
     sentiment_score = _round_score(sum(p.item() * w for p, w in zip(sent_p, SENTIMENT_WEIGHTS)))
     sent_idx = int(torch.argmax(sent_p))
-    emotions = _above(emo_probs)
+    emotions = _above("emotion", emo_probs)
     dominant = emotions[0] if emotions else None
     distortion_detected = int(torch.argmax(dist_p)) == 1
 
     return {
         "sentiment_score": sentiment_score,
         "dominant_emotion": dominant,
-
+        "chunks": chunks,
 "tasks": {
             "sentiment": {
                 "label": SENTIMENT_LABELS[sent_idx],
@@ -157,7 +179,7 @@ def run_mtl(text: str) -> dict:
                 "label": DISTORTION_LABELS[int(distortion_detected)],
                 "detected": distortion_detected,
                 "probability": round(dist_p[1].item(), 4),  # P(Ναι)
-                "types": _above(type_probs) if distortion_detected else [],
+                "types": _above("distortion_types", type_probs) if distortion_detected else [],
                 "type_probabilities": type_probs,
             },
             # μονο αν το head εκπαιδευτηκε, αλλιως ενα τυχαιο head θα εβγαζε ψευτικους συναγερμους
@@ -257,6 +279,7 @@ def analyze(req: AnalyzeRequest, background_tasks: BackgroundTasks):
         "emotions": result["tasks"]["emotion"]["labels"],
         "entities": entities,         
         "analysis": result["tasks"],
+        "chunks": result["chunks"],
         "model_version": "mtl-greekbert-v2",
         # το PHP κραταει μονο τα tasks που εκπαιδευτηκαν, τα υπολοιπα ειναι τυχαια
         "model_trained": ml.get("trained", False),

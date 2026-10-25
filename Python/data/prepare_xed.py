@@ -1,12 +1,12 @@
 # data/prepare_xed.py
 # XED, ελληνικες προβολες (github.com/Helsinki-NLP/XED, Öhman et al. 2020, CC BY 4.0) -> interim/xed.csv
-# Γεμιζει emotion και, οπου βγαινει καθαρα, sentiment. Ηδη ελληνικα.
+# Γεμιζει μονο emotion. Ηδη ελληνικα.
 # Υποτιτλοι ταινιων με labels προβεβλημενα απο τα αγγλικα -> πιο θορυβωδη απο το GoEmotions.
 import os
 import re
 from collections import Counter
 
-from common import RAW, clean, idx, multi, summary, words, write
+from common import RAW, clean, multi, summary, words, write
 
 SRC = os.path.join(RAW, "xed", "el-projections.tsv")
 MIN_WORDS = 3
@@ -15,17 +15,7 @@ _LABELS = re.compile(r"^\d(, ?\d)*$")
 # Plutchik (XED) -> labels.py. anticipation, disgust, trust δεν αντιστοιχιζονται.
 NAMES = {1: "anger", 2: "anticipation", 3: "disgust", 4: "fear", 5: "joy", 6: "sadness", 7: "surprise", 8: "trust"}
 EMOTION_MAP = {"anger": "Θυμός", "fear": "Φόβος", "joy": "Χαρά", "sadness": "Λύπη", "surprise": "Έκπληξη"}
-POSITIVE = {"joy"}
-NEGATIVE = {"anger", "fear", "sadness"}
 COVERED = multi("emotion", EMOTION_MAP.values())
-
-
-def sentiment_of(emo: set) -> str:
-    if emo <= POSITIVE:
-        return idx("sentiment", "Θετικό")
-    if emo <= NEGATIVE:
-        return idx("sentiment", "Αρνητικό")
-    return ""  # surprise ή μικτο -> χωρις sentiment
 
 
 def main():
@@ -54,7 +44,7 @@ def main():
                 "text": text,
                 "emotion": multi("emotion", [EMOTION_MAP[e] for e in emo]),
                 "emotion_covered": COVERED,
-                "sentiment": sentiment_of(emo),
+                "sentiment": "",
                 "meta": ",".join(sorted(emo)),
             })
     print(f"[xed] παραλειφθηκαν {dict(skipped)}")

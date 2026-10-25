@@ -1,0 +1,65 @@
+{
+  "started": "2026-10-22",
+  "note": "Πρώτο training, δοκιμή της ροής. Καταγράφηκε με το χέρι από την έξοδο του terminal (τα σκορ με 2 δεκαδικά, όπως τυπώθηκαν). Εύρημα: έντονη μεροληψία προς το Αρνητικό (π.χ. «μου έπεσε το στυλό και το σήκωσα» -> Αρνητικό 99,86%, Λύπη 57%), επειδή το sentiment του XED υπολογίστηκε από τα συναισθήματα (2.155 αρνητικά, 0 ουδέτερα).",
+  "model": {
+    "name": "nlpaueb/bert-base-greek-uncased-v1",
+    "revision": "b1092b2d17c5732186573ce8e76a01f45be927f0"
+  },
+  "device": "mps",
+  "data": {
+    "path": "training/train.csv",
+    "train": 4916,
+    "val": 1215,
+    "sources_merge": {
+      "xed": {"total": 3437, "kept": 3408, "duplicates": 29, "label_conflicts": 1},
+      "goemotions": {"total": 2450, "rejected_label_check": 326, "kept": 2119, "duplicates": 5, "label_conflicts": 4},
+      "sentimp": {"total": 491, "kept": 491},
+      "codipad": {"total": 100, "rejected_label_check": 5, "kept": 95},
+      "manual": {"total": 18, "kept": 18}
+    },
+    "annotated_train": {
+      "sentiment": 3930,
+      "emotion": 4456,
+      "irony": 15,
+      "distortion": 95,
+      "distortion_types": 93,
+      "risk": 0
+    },
+    "labels_train_val": {
+      "sentiment": {"Αρνητικό": [2646, 661], "Ουδέτερο": [299, 65], "Θετικό": [985, 257]},
+      "emotion": {
+        "Χαρά": [642, 149], "Λύπη": [886, 187], "Θυμός": [1206, 316], "Φόβος": [727, 165],
+        "Άγχος": [54, 12], "Ηρεμία": [45, 7], "Αγάπη": [171, 47], "Έκπληξη": [851, 206],
+        "Κούραση": [1, 0], "Ενθουσιασμός": [182, 50], "Ντροπή": [107, 29], "Ενοχή": [142, 38],
+        "(κανένα)": [192, 42]
+      }
+    }
+  },
+  "params": {
+    "epochs": 10,
+    "batch_size": 16,
+    "lr": 2e-05,
+    "max_len": 128,
+    "seed": 42,
+    "min_examples": 200,
+    "multi_label_threshold": 0.5
+  },
+  "trained_tasks": ["sentiment", "emotion"],
+  "trained_labels": {
+    "emotion": ["Χαρά", "Λύπη", "Θυμός", "Φόβος", "Άγχος", "Ηρεμία", "Αγάπη", "Έκπληξη", "Ενθουσιασμός", "Ντροπή", "Ενοχή"]
+  },
+  "epochs": [
+    {"epoch": 1, "loss": 1.5301, "val": {"sentiment": 0.79, "emotion": 0.00}, "mean": 0.395},
+    {"epoch": 2, "loss": 1.1164, "val": {"sentiment": 0.83, "emotion": 0.03}, "mean": 0.429},
+    {"epoch": 3, "loss": 0.8699, "val": {"sentiment": 0.81, "emotion": 0.16}, "mean": 0.488},
+    {"epoch": 4, "loss": 0.6640, "val": {"sentiment": 0.82, "emotion": 0.17}, "mean": 0.496},
+    {"epoch": 5, "loss": 0.5357, "val": {"sentiment": 0.83, "emotion": 0.29}, "mean": 0.557},
+    {"epoch": 6, "loss": 0.4484, "val": {"sentiment": 0.79, "emotion": 0.29}, "mean": 0.541},
+    {"epoch": 7, "loss": 0.3985, "val": {"sentiment": 0.82, "emotion": 0.39}, "mean": 0.606},
+    {"epoch": 8, "loss": 0.3810, "val": {"sentiment": 0.83, "emotion": 0.41}, "mean": 0.619},
+    {"epoch": 9, "loss": 0.3330, "val": {"sentiment": 0.83, "emotion": 0.43}, "mean": 0.630},
+    {"epoch": 10, "loss": 0.3255, "val": {"sentiment": 0.81, "emotion": 0.45}, "mean": 0.629}
+  ],
+  "best": {"epoch": 9, "mean": 0.630},
+  "baseline": {"sentiment_majority_class": 0.672}
+}
