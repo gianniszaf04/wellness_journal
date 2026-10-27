@@ -113,13 +113,18 @@ def prompt_for(cssrs: bool, with_risk: bool, check: bool) -> str:
 
 def call(model: str, key: str, items: list[dict], cssrs: bool, with_risk: bool, check: bool,
          retries: int = 6) -> list[dict]:
+    return generate(model, key, prompt_for(cssrs, with_risk, check), items, schema(with_risk, check), 0.2, retries)
+
+
+def generate(model: str, key: str, system: str, items: list[dict], response_schema: dict,
+             temperature: float, retries: int = 6) -> list[dict]:
     body = {
-        "systemInstruction": {"parts": [{"text": prompt_for(cssrs, with_risk, check)}]},
+        "systemInstruction": {"parts": [{"text": system}]},
         "contents": [{"role": "user", "parts": [{"text": json.dumps(items, ensure_ascii=False)}]}],
         "generationConfig": {
-            "temperature": 0.2,
+            "temperature": temperature,
             "responseMimeType": "application/json",
-            "responseSchema": schema(with_risk, check),
+            "responseSchema": response_schema,
         },
         # χωρις αυτα, κειμενα για αυτοκτονια μπλοκαρονται και χανεται ακριβως το risk set
         "safetySettings": [{"category": c, "threshold": "BLOCK_NONE"} for c in (

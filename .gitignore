@@ -11,5 +11,6 @@ storage/*.jsonl
 Python/data/raw/
 Python/data/interim/
 Python/data/processed/
+Python/data/recheck/
 Python/training/train.csv
 Python/mtl_config.json
