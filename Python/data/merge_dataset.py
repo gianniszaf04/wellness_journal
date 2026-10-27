@@ -36,6 +36,9 @@ NONE = "none"
 
 _SPACES = re.compile(r"\s+")
 _GREEK = re.compile(r"[Ͱ-Ͽἀ-῿]")
+_POST_SEP = re.compile(r"""\s*['"]\s*,\s*['"]\s*""")
+_QUOTE_SEP = re.compile(r"""\s*»\s*,\s*«\s*|(?<=[.!?…;)\]])\s*»\s*«\s*""")
+_LIST_EDGES = re.compile(r"""^\[?['"]|['"]\]?$""")
 
 
 def key(text: str) -> str:
@@ -47,6 +50,13 @@ def key(text: str) -> str:
 
 def source_key(text: str | None) -> str:
     return "".join(c for c in (text or "").casefold() if c.isalnum())
+
+
+def unglue(text: str, text_src: str | None) -> str:
+    if not _POST_SEP.search(text_src or ""):
+        return text
+    text = _QUOTE_SEP.sub(" ", _POST_SEP.sub(" ", text))
+    return _LIST_EDGES.sub("", text).strip()
 
 
 def union(a: str, b: str) -> str:
@@ -195,6 +205,10 @@ def main():
                 s["απορρίφθηκαν (έλεγχος labels)"] += 1
                 continue
             text = _SPACES.sub(" ", r.get("text") or "").strip()
+            unglued = unglue(text, r.get("text_src"))
+            if unglued != text:
+                s["καθαρίστηκαν κολλημένα posts"] += 1
+                text = unglued
             if not text:
                 s["κενά"] += 1
                 continue
