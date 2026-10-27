@@ -112,9 +112,9 @@ class AiClient
         return ($value >= 0 && $value <= 1) ? round((float) $value, 4) : null;
     }
 
-    // ιδιο κριτηριο με το Python (argmax σε δυο κλασεις)
-    public static function detected(?float $probability): ?bool
+    public static function detected(array $aiData, string $task): ?bool
     {
-        return $probability === null ? null : $probability > 0.5;
+        $detected = $aiData['analysis'][$task]['detected'] ?? null;
+        return is_bool($detected) ? $detected : null;
     }
 }

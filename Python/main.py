@@ -117,6 +117,11 @@ def _above(task: str, probs: dict) -> list:
     return [l for l, p in sorted(probs.items(), key=lambda x: -x[1]) if p >= thresholds.get(l, MULTI_LABEL_THRESHOLD)]
 
 
+def _detected(task: str, p) -> bool:
+    threshold = ml["thresholds"].get(task)
+    return p[1].item() > (threshold if isinstance(threshold, (int, float)) else 0.5)
+
+
 @torch.no_grad()
 def run_mtl(text: str) -> dict:
     enc = ml["tokenizer"](
@@ -154,7 +159,8 @@ def run_mtl(text: str) -> dict:
     sent_idx = int(torch.argmax(sent_p))
     emotions = _above("emotion", emo_probs)
     dominant = emotions[0] if emotions else None
-    distortion_detected = int(torch.argmax(dist_p)) == 1
+    irony_detected = _detected("irony", iro_p)
+    distortion_detected = _detected("distortion", dist_p)
 
     return {
         "sentiment_score": sentiment_score,
@@ -172,7 +178,8 @@ def run_mtl(text: str) -> dict:
                 "probabilities": emo_probs,
             },
             "irony": {
-                "label": IRONY_LABELS[int(torch.argmax(iro_p))],
+                "label": IRONY_LABELS[int(irony_detected)],
+                "detected": irony_detected,
                 "probability": round(iro_p[1].item(), 4),  # P(Ναι)
             },
             "distortion": {  # CBT cognitive distortion

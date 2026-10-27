@@ -91,6 +91,8 @@ sentiment_score DECIMAL (6,4) NULL,
 dominant_emotion_id BIGINT UNSIGNED  NULL,
 irony_probability DECIMAL(5,4) NULL, -- 0-1, απο το μοντελο
 distortion_probability DECIMAL(5,4) NULL, -- 0-1, γνωστικη διαστρεβλωση (CBT)
+irony_detected TINYINT(1) NULL,
+distortion_detected TINYINT(1) NULL,
 created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 

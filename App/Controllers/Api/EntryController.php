@@ -130,6 +130,8 @@ class EntryController
         $aiData = null;
         $ironyProbability = null;
         $distortionProbability = null;
+        $ironyDetected = null;
+        $distortionDetected = null;
         $riskProbability = null;
         $emotions = [];
         $distortionTypes = [];
@@ -155,6 +157,8 @@ class EntryController
                 $entities = $aiData['entities'] ?? [];
                 $ironyProbability = AiClient::probability($aiData, 'irony');
                 $distortionProbability = AiClient::probability($aiData, 'distortion');
+                $ironyDetected = AiClient::detected($aiData, 'irony');
+                $distortionDetected = AiClient::detected($aiData, 'distortion');
                 $riskProbability = AiClient::probability($aiData, 'risk');
                 $emotions = AiClient::scored($aiData['emotions'] ?? null, $aiData['analysis']['emotion']['probabilities'] ?? null);
                 $distortionTypes = AiClient::scored(
@@ -175,7 +179,8 @@ class EntryController
             if ($replaceEntities || $sentimentScore !== null || $dominantEmotionId !== null) {
                 $stmt = $db->prepare(
                     'UPDATE entries SET sentiment_score = :sentiment, dominant_emotion_id = :emotion,
-                    irony_probability = :irony, distortion_probability = :distortion
+                    irony_probability = :irony, distortion_probability = :distortion,
+                    irony_detected = :irony_detected, distortion_detected = :distortion_detected
                     WHERE id = :id AND user_id = :user_id'
                 );
 
@@ -184,6 +189,8 @@ class EntryController
                     ':emotion' => $dominantEmotionId,
                     ':irony' => $ironyProbability,
                     ':distortion' => $distortionProbability,
+                    ':irony_detected' => $ironyDetected === null ? null : (int) $ironyDetected,
+                    ':distortion_detected' => $distortionDetected === null ? null : (int) $distortionDetected,
                     ':id' => $id,
                     ':user_id' => $userId
                 ]);

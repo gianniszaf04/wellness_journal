@@ -66,6 +66,6 @@ class SentimentController
     {
         $probability = AiClient::probability($aiData, $task);
 
-        return $probability === null ? null : ['probability' => $probability, 'detected' => AiClient::detected($probability)];
+        return $probability === null ? null : ['probability' => $probability, 'detected' => AiClient::detected($aiData, $task)];
     }
 }
