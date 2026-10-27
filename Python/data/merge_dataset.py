@@ -35,6 +35,7 @@ OUT_COLUMNS = ["id", "source", "group", "split", "text"] + TASKS + COVERED
 NONE = "none"
 
 _SPACES = re.compile(r"\s+")
+_GREEK = re.compile(r"[Ͱ-Ͽἀ-῿]")
 
 
 def key(text: str) -> str:
@@ -42,6 +43,25 @@ def key(text: str) -> str:
     text = unicodedata.normalize("NFD", text.casefold())
     text = "".join(c for c in text if unicodedata.category(c) != "Mn")
     return _SPACES.sub(" ", text).strip()
+
+
+def source_key(text: str | None) -> str:
+    return "".join(c for c in (text or "").casefold() if c.isalnum())
+
+
+def union(a: str, b: str) -> str:
+    ids = {int(p) for v in (a, b) if v and v != NONE for p in v.split("|")}
+    return "|".join(map(str, sorted(ids))) if ids else NONE
+
+
+def union_covered(a: str, b: str) -> str:
+    return "" if not a or not b else union(a, b)
+
+
+def can_union(t: str, prev: dict, labels: dict) -> bool:
+    if t == "distortion_types":
+        return prev["distortion"] == labels["distortion"] == "1"
+    return t in MULTI_LABEL_TASKS
 
 
 def blank(value) -> bool:
@@ -160,6 +180,7 @@ def main():
 
     test = test_texts()
     merged: dict[str, dict] = {}  # key(text) -> γραμμη
+    by_source_text: dict[str, str] = {}
     stats = defaultdict(Counter)
     bad = Counter()
 
@@ -177,6 +198,9 @@ def main():
             if not text:
                 s["κενά"] += 1
                 continue
+            if not _GREEK.search(text):
+                s["χωρίς ελληνικά"] += 1
+                continue
             k = key(text)
             if k in test:
                 s["στο test set"] += 1
@@ -185,6 +209,9 @@ def main():
             if all(v == "" for v in labels.values()):
                 s["χωρίς label"] += 1
                 continue
+            src = source_key(r.get("text_src"))
+            if src and k not in merged and src in by_source_text:
+                k = by_source_text[src]
 
             if k in merged:
                 # ιδιο κειμενο ξανα: συμπληρωνουμε μονο οσα λειπουν, σε συγκρουση κραταμε το πρωτο
@@ -197,6 +224,12 @@ def main():
                         prev[t] = v
                         if t in MULTI_LABEL_TASKS:
                             prev[f"{t}_covered"] = labels[f"{t}_covered"]
+                    elif prev[t] != v and can_union(t, prev, labels):
+                        u = union(prev[t], v)
+                        if u != prev[t]:
+                            s["ενώθηκαν labels"] += 1
+                        prev[t] = u
+                        prev[f"{t}_covered"] = union_covered(prev[f"{t}_covered"], labels[f"{t}_covered"])
                     elif prev[t] != v:
                         s["συγκρούσεις label"] += 1
                 s["διπλά"] += 1
@@ -204,6 +237,8 @@ def main():
 
             group = r.get("group") or r.get("id") or k
             merged[k] = {"id": r.get("id", ""), "source": name, "group": group, "text": text, **labels}
+            if src:
+                by_source_text.setdefault(src, k)
             s["κρατήθηκαν"] += 1
 
     rows = list(merged.values())
