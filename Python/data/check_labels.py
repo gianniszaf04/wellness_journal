@@ -11,7 +11,7 @@ from translate_gemini import HERE, OUT_COLUMNS, PROCESSED, describe, generate, l
 RECHECK = os.path.join(HERE, "recheck")
 FIELDS = ["id", "check", "reason"]
 
-PROMPT = """Ελέγχεις labels γνωστικής διαστρέβλωσης σε αγγλικά κείμενα. Τα labels τα έβαλαν άνθρωποι.
+DISTORTION_PROMPT = """Ελέγχεις labels γνωστικής διαστρέβλωσης σε αγγλικά κείμενα. Τα labels τα έβαλαν άνθρωποι.
 
 Διαστρέβλωση είναι ένας υπερβολικός ή άκαμπτος τρόπος ερμηνείας της πραγματικότητας από τον συγγραφέα, όχι το γεγονός ή το συναίσθημα. Υπάρχει μόνο όταν υπάρχει συγκεκριμένη φράση-σκέψη που μπορείς να δείξεις.
 - Λύπη δεν είναι διαστρέβλωση: «Χωρίσαμε και πονάω πολύ» -> Όχι. «Χωρίσαμε, κανείς δεν θα με αγαπήσει ποτέ» -> Ναι.
@@ -35,6 +35,24 @@ PROMPT = """Ελέγχεις labels γνωστικής διαστρέβλωση�
 - "check": "yes" σε κάθε άλλη περίπτωση, και όταν είναι αμφίβολο. Μην προτείνεις τύπους που λείπουν, κρίνε μόνο όσους δίνονται.
 """
 
+RISK_PROMPT = """Ελέγχεις labels κινδύνου σε αγγλικά κείμενα από το Reddit. Κάθε κείμενο είναι κομμάτι από post ή σχόλιο.
+
+Κίνδυνος Ναι μόνο όταν ο ΙΔΙΟΣ ο συγγραφέας εκφράζει σκέψεις αυτοκτονίας, θανάτου ή αυτοτραυματισμού για τον εαυτό του, τώρα ή στο παρελθόν, ρητά ή έμμεσα. Μετράνε και σχέδια, μέσα, προηγούμενη απόπειρα ή αυτοτραυματισμός.
+- Μιλάει για κάποιον άλλο, δίνει συμβουλές ή στηρίζει άλλους χωρίς να δείχνει ο ίδιος κίνδυνο -> Όχι.
+- Γενική συζήτηση για την αυτοκτονία, χωρίς αναφορά στον εαυτό του -> Όχι.
+- Λύπη, απελπισία ή κατάθλιψη χωρίς σκέψεις θανάτου ή αυτοτραυματισμού -> Όχι.
+- Υπερβολές της καθημερινότητας («πέθανα στα γέλια») -> Όχι.
+
+Θα λάβεις JSON λίστα με αντικείμενα {"i": αριθμός, "text": κείμενο, "labels": labels}. Για ΚΑΘΕ αντικείμενο επίστρεψε το ίδιο "i" και:
+- "check": "no" μόνο όταν το label είναι ξεκάθαρα λάθος με βάση τον παραπάνω ορισμό: Ναι χωρίς καμία τέτοια σκέψη του συγγραφέα για τον εαυτό του, ή Όχι ενώ υπάρχει. Τότε γράψε στο "reason" μια σύντομη εξήγηση στα ελληνικά.
+- "check": "yes" σε κάθε άλλη περίπτωση, και όταν είναι αμφίβολο.
+"""
+
+CHECKS = {
+    "codipad": (DISTORTION_PROMPT, "distortion"),
+    "cssrs": (RISK_PROMPT, "risk"),
+}
+
 SCHEMA = {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {
     "i": {"type": "INTEGER"},
     "check": {"type": "STRING", "enum": ["yes", "no"]},
@@ -54,13 +72,14 @@ def load_run(source: str, run: str) -> dict:
 
 
 def check(args, rows: list[dict]):
+    prompt, task = CHECKS[args.source]
     todo = random.Random(SEED).sample(rows, args.sample) if args.sample else rows
     out_path = run_path(args.source, args.run)
     done = set(load_run(args.source, args.run)) if os.path.exists(out_path) else set()
     todo = [r for r in todo if r["id"] not in done]
     print(f"[{args.source}/{args.run}] {len(done)} ηδη ελεγμενα, {len(todo)} για ελεγχο, {-(-len(todo) // args.batch)} κλησεις")
     if args.dry_run:
-        print(PROMPT)
+        print(prompt)
         print([{"i": i, "text": r["text_src"], "labels": describe(r)} for i, r in enumerate(todo[:3])])
         return
     key = load_key()
@@ -78,7 +97,7 @@ def check(args, rows: list[dict]):
                 t0 = time.time()
                 items = [{"i": i, "text": r["text_src"], "labels": describe(r)} for i, r in enumerate(batch)]
                 try:
-                    result = generate(args.model, key, PROMPT, items, SCHEMA, 0.0)
+                    result = generate(args.model, key, prompt, items, SCHEMA, 0.0)
                 except RuntimeError as e:
                     print(f"   [!] παρτιδα {b // args.batch} απετυχε: {e}")
                     continue
@@ -94,13 +113,13 @@ def check(args, rows: list[dict]):
         except KeyboardInterrupt:
             print("\n[!] Διακοπη. Οτι εγινε εχει σωθει, ξανατρεξε για να συνεχισεις.")
             sys.exit(1)
-    summary(rows, load_run(args.source, args.run))
+    summary(rows, load_run(args.source, args.run), task)
 
 
-def summary(rows: list[dict], result: dict):
+def summary(rows: list[dict], result: dict, task: str):
     by_id = {r["id"]: r for r in rows}
-    for d, name in (("1", "με διαστρεβλωση"), ("0", "χωρις")):
-        part = [r for i, r in result.items() if by_id[i]["distortion"] == d]
+    for d, name in (("1", f"{task} Ναι"), ("0", f"{task} Όχι")):
+        part = [r for i, r in result.items() if by_id[i][task] == d]
         if part:
             n = sum(r["check"] == "rejected" for r in part)
             print(f"   {name}: {n}/{len(part)} rejected ({n / len(part):.0%})")
@@ -139,12 +158,12 @@ def apply(args, rows: list[dict]):
         w.writerows({**r, "label_check": result[r["id"]]["check"], "check_reason": result[r["id"]]["reason"]}
                     for r in rows)
     print(f"[{args.source}] label_check απο το run '{args.apply}'. Ο παλιος ελεγχος: {backup}")
-    summary(rows, result)
+    summary(rows, result, CHECKS[args.source][1])
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--source", default="codipad")
+    ap.add_argument("--source", default="codipad", choices=sorted(CHECKS))
     ap.add_argument("--run", default="full")
     ap.add_argument("--sample", type=int, default=0)
     ap.add_argument("--model", default="gemini-3.8-flash")
