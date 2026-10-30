@@ -189,6 +189,8 @@ def main():
     ap.add_argument("--model", default="gemini-3.8-flash")
     ap.add_argument("--batch", type=int, default=80, help="κειμενα ανα κληση (μεγαλυτερο = λιγοτερες κλησεις απο το ημερησιο οριο)")
     ap.add_argument("--rpm", type=float, default=8, help="μεγιστες κλησεις ανα λεπτο")
+    ap.add_argument("--user-labels", nargs="*", default=None,
+                    help="μονο γραμμες με αυτο το user_label στο meta, π.χ. Attempt Behavior (C-SSRS)")
     ap.add_argument("--no-check", action="store_true", help="χωρις ελεγχο των labels")
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
@@ -218,6 +220,9 @@ def main():
                 header = next(csv.reader(f), [])
             if header != OUT_COLUMNS:
                 sys.exit(f"[!] Το {out_path} εχει παλια μορφη στηλων. Σβησε το και ξανατρεξε.")
+        if args.user_labels:
+            wanted = {f"user_label={l}" for l in args.user_labels}
+            rows = [r for r in rows if r.get("meta", "").split(";")[0] in wanted]
         todo = sample(rows, args.limit)
         done = {r["id"] for r in read(out_path)} if os.path.exists(out_path) else set()
         todo = [r for r in todo if r["id"] not in done]
