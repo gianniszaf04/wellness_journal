@@ -49,6 +49,7 @@ MIN_TASK_EXAMPLES = 50
 THRESHOLD_GRID = [round(0.05 * i, 2) for i in range(1, 20)]
 MIN_VAL_POSITIVES = 5
 TUNED_BINARY_TASKS = ("irony", "distortion")
+WEIGHTED_TASKS = ("sentiment", "risk")
 
 
 def _blank(value) -> bool:
@@ -303,10 +304,12 @@ def main():
         if missing:
             print(f"[!] {t}: λιγοτερες απο {args.min_examples} γραμμες καλυπτουν {missing}, δεν δηλωνονται trained")
 
-    sentiment_weights = class_weights([l["sentiment"] for l in train_ds.labels], HEAD_DIMS["sentiment"])
-    if sentiment_weights:
-        print("[*] βαρη sentiment: " + ", ".join(
-            f"{l}={w}" for l, w in zip(LABEL_SETS["sentiment"], sentiment_weights)))
+    weights = {}
+    for t in WEIGHTED_TASKS:
+        w = class_weights([l[t] for l in train_ds.labels], HEAD_DIMS[t])
+        if w:
+            weights[t] = w
+            print(f"[*] βαρη {t}: " + ", ".join(f"{l}={x}" for l, x in zip(LABEL_SETS[t], w)))
 
     run_dir = os.path.join(RUNS_DIR, datetime.now().strftime("%Y-%m-%d_%H%M%S"))
     os.makedirs(run_dir, exist_ok=True)
@@ -334,7 +337,7 @@ def main():
             "seed": SEED,
             "min_examples": args.min_examples,
             "multi_label_threshold": MULTI_LABEL_THRESHOLD,
-            "sentiment_class_weights": dict(zip(LABEL_SETS["sentiment"], sentiment_weights or [])),
+            "class_weights": {t: dict(zip(LABEL_SETS[t], w)) for t, w in weights.items()},
             "selection_metric": "macro-F1 (single-label), micro-F1 (multi-label)",
         },
         "trained_tasks": trained_tasks,
@@ -351,8 +354,8 @@ def main():
     model = WellnessMTLModel().to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=LR)
     ce = torch.nn.CrossEntropyLoss(ignore_index=IGNORE)
-    sentiment_weight = torch.tensor(sentiment_weights, device=device) if sentiment_weights else None
-    ce_sentiment = torch.nn.CrossEntropyLoss(weight=sentiment_weight, ignore_index=IGNORE)
+    ce_weighted = {t: torch.nn.CrossEntropyLoss(weight=torch.tensor(w, device=device), ignore_index=IGNORE)
+                   for t, w in weights.items()}
     bce = torch.nn.BCEWithLogitsLoss(reduction="none")  # ανα label, για τη μασκα καλυψης
 
     best_val = -1.0  # κραταμε το καλυτερο checkpoint (οχι το τελευταιο epoch)
@@ -376,8 +379,8 @@ def main():
                 if t in MULTI_LABEL_TASKS:
                     covered = batch[f"{t}_mask"].to(device)
                     task_loss = (bce(logits[t], y) * covered).sum() / covered.sum()
-                elif t == "sentiment":
-                    task_loss = ce_sentiment(logits[t], y)
+                elif t in ce_weighted:
+                    task_loss = ce_weighted[t](logits[t], y)
                 else:
                     task_loss = ce(logits[t], y)
                 loss = task_loss if loss is None else loss + task_loss
