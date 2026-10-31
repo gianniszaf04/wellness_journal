@@ -48,6 +48,34 @@
             <ul class="live__notes" id="live-notes" hidden></ul>
         </section>
 
+        <?php [$soundLabel, $soundHint] = \App\Models\UserProfile::SOUND_LABELS[$sound]; ?>
+        <section class="card sound" id="sound" aria-labelledby="sound-title"
+            data-sound="<?= e($sound) ?>"
+            data-stream="<?= e(asset('audio/stream.m4a')) ?>"
+            data-wind="<?= e(asset('audio/wind.m4a')) ?>">
+            <h2 class="card__title" id="sound-title">Ήχος</h2>
+            <?php if ($sound === 'none'): ?>
+                <p class="muted sound__empty">Γράφεις χωρίς ήχο. Αν θέλεις, διάλεξε έναν στο <a href="<?= e(url('profile')) ?>">προφίλ</a>.</p>
+            <?php else: ?>
+                <div class="sound__row">
+                    <button class="btn btn--quiet sound__toggle" type="button" id="sound-toggle" aria-pressed="false" aria-describedby="sound-name">Άκουσε</button>
+                    <p class="sound__name" id="sound-name"><b><?= e($soundLabel) ?></b> <small><?= e($soundHint) ?></small></p>
+                </div>
+                <?php if ($sound === 'calm'): ?>
+                    <div class="breath" id="breath">
+                        <i class="breath__circle" aria-hidden="true"></i>
+                        <span class="breath__label" id="breath-label" aria-live="polite">Πάτα «Άκουσε» για να ξεκινήσεις</span>
+                    </div>
+                <?php endif; ?>
+                <label class="sound__volume">
+                    <span>Ένταση</span>
+                    <input type="range" id="sound-volume" min="0" max="1" step="0.01" value="0.6">
+                </label>
+                <p class="sound__status muted" id="sound-status" role="status"></p>
+                <a class="sound__change" href="<?= e(url('profile')) ?>">Άλλαξε ήχο</a>
+            <?php endif; ?>
+        </section>
+
         <section class="card" aria-labelledby="prompts-title">
             <h2 class="card__title" id="prompts-title">Ιδέες για να ξεκινήσεις</h2>
             <div class="prompts">

@@ -31,6 +31,15 @@
         });
     });
 
+    const soundStatus = document.getElementById('sound-status');
+    document.querySelectorAll('input[name="sound"]').forEach(input => {
+        input.addEventListener('change', async () => {
+            soundStatus.textContent = 'Αποθήκευση…';
+            const result = await window.api.patch('api/profile', { sound: input.value });
+            soundStatus.textContent = result.ok ? 'Αποθηκεύτηκε.' : (result.data.error || 'Δεν αποθηκεύτηκε. Δοκίμασε ξανά.');
+        });
+    });
+
     const dialog = document.getElementById('delete-account-dialog');
     document.getElementById('delete-account-btn')?.addEventListener('click', () => {
         dialog.showModal();

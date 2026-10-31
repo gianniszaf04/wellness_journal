@@ -4,6 +4,7 @@ __pycache__/
 storage/ratelimit/
 storage/*.jsonl
 *.pt
+*.wav
 .DS_Store
 .claude/settings.local.json
 

@@ -206,6 +206,7 @@
             text.textContent = message?.message_text || '';
             text.hidden = !message?.message_text;
             $('saved-view').href = window.api.url(`entry/${entry.id}`);
+            window.sound?.pause();
             grid.hidden = true;
             this.box.hidden = false;
             window.scrollTo({ top: 0, behavior: 'smooth' });

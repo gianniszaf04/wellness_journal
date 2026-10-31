@@ -3,6 +3,7 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use App\Models\Entry;
+use App\Models\UserProfile;
 
 class EntryController
 {
@@ -16,10 +17,13 @@ class EntryController
     public function showEditor(): void
     {
         $today = date('Y-m-d');
+        $profile = (new UserProfile())->getOrCreate((int) current_user_id());
+        $sound = (string) ($profile['sound'] ?? UserProfile::DEFAULT_SOUND);
 
         view('entry/editor', [
             'title'      => 'Νέα σελίδα',
-            'scripts'    => ['api.js', 'editor.js'],
+            'scripts'    => ['api.js', 'editor.js', 'sound.js'],
+            'sound'      => in_array($sound, UserProfile::VALID_SOUNDS, true) ? $sound : UserProfile::DEFAULT_SOUND,
             'today'      => $today,
             'todayLabel' => greek_date($today),
             'maxLength'  => 10000,

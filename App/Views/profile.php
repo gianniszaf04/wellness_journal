@@ -44,6 +44,22 @@ $themes = [
             <p class="form-status" id="theme-status" role="status"></p>
         </section>
 
+        <section class="card" aria-labelledby="sound-title">
+            <span class="tape tape--left tape--mustard" aria-hidden="true"></span>
+            <h2 class="card__title" id="sound-title">Ήχος την ώρα που γράφεις</h2>
+            <p class="muted">Παίζει μόνο όταν τον ξεκινάς εσύ, από τη σελίδα γραφής.</p>
+            <div class="theme-choices sound-choices" role="radiogroup" aria-labelledby="sound-title">
+                <?php foreach (\App\Models\UserProfile::SOUND_LABELS as $value => [$label, $hint]): ?>
+                    <label class="theme-choice sound-choice">
+                        <input type="radio" name="sound" value="<?= e($value) ?>"<?= $sound === $value ? ' checked' : '' ?>>
+                        <b><?= e($label) ?></b>
+                        <small><?= e($hint) ?></small>
+                    </label>
+                <?php endforeach; ?>
+            </div>
+            <p class="form-status" id="sound-status" role="status"></p>
+        </section>
+
         <section class="card" aria-labelledby="data-title">
             <span class="tape tape--left tape--sky" aria-hidden="true"></span>
             <h2 class="card__title" id="data-title">Τα δεδομένα σου</h2>

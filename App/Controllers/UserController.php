@@ -36,6 +36,7 @@ class UserController {
             'memberSince'     => 'τον ' . mb_substr(greek_month((int) date('n', $created)), 0, -1) . ' του ' . date('Y', $created),
             'pages'           => (new \App\Models\Entry())->countForUser($userId),
             'theme'           => (string) ($profile['theme_background'] ?? UserProfile::DEFAULT_THEME),
+            'sound'           => (string) ($profile['sound'] ?? UserProfile::DEFAULT_SOUND),
             'passwordError'   => flash('password_error'),
             'passwordSuccess' => flash('password_success'),
             'deleteError'     => flash('error'),

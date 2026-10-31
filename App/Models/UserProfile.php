@@ -12,7 +12,13 @@ class UserProfile {
     public const DEFAULT_THEME = 'default_theme';
     public const DEFAULT_SOUND = 'none';
     public const VALID_THEMES = ['default_theme', 'dark_theme', 'light_theme'];
-    public const VALID_SOUNDS = ['none', 'soft', 'calm', 'nature'];
+    public const VALID_SOUNDS = ['none', 'nature', 'soft', 'calm'];
+    public const SOUND_LABELS = [
+        'none'   => ['Χωρίς ήχο', 'ησυχία'],
+        'nature' => ['Φύση', 'νερό και άνεμος'],
+        'soft'   => ['Εστίαση', 'βαθύς, χαμηλός θόρυβος'],
+        'calm'   => ['Ανάσα', 'αργή αναπνοή με οδηγό'],
+    ];
 
     public function __construct(){
         $this->db= (new Database()) ->getConnection();
