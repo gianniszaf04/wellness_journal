@@ -8,6 +8,7 @@ use PDO;
 class User {
     // μετα απο τοσες μερες ο λογαριασμος σβηνεται οριστικα
     public const DELETION_GRACE_DAYS = 30;
+    public const UNVERIFIED_TTL_HOURS = 24;
     public const MIN_PASSWORD_LENGTH = 8;
     // το bcrypt αγνοει οτι υπαρχει μετα τα 72 bytes (ενα ελληνικο γραμμα = 2 bytes)
     public const MAX_PASSWORD_BYTES = 72;
@@ -165,6 +166,20 @@ class User {
             return $stmt->rowCount();
         } catch (\PDOException $e) {
             error_log('User::purgeExpiredDeletions error: ' . $e->getMessage());
+            return 0;
+        }
+    }
+
+    public function purgeUnverified(): int {
+        try {
+            $stmt = $this->db->prepare(
+                'DELETE FROM users
+                WHERE email_verified_at IS NULL
+                AND created_at <= NOW() - INTERVAL ' . self::UNVERIFIED_TTL_HOURS . ' HOUR');
+            $stmt->execute();
+            return $stmt->rowCount();
+        } catch (\PDOException $e) {
+            error_log('User::purgeUnverified error: ' . $e->getMessage());
             return 0;
         }
     }

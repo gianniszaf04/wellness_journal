@@ -19,6 +19,7 @@ use App\Models\User;
 
 $tasks = [
     'Λογαριασμοί μετά την περίοδο διαγραφής' => fn (): int => (new User())->purgeExpiredDeletions(),
+    'Λογαριασμοί χωρίς επιβεβαίωση email' => fn (): int => (new User())->purgeUnverified(),
     'Παλιά daily messages' => fn (): int => (new DailyMessage())->cleanUpOld(),
     'Παλιά insights' => fn (): int => (new Insight())->cleanUpOld(),
     'Relations χωρίς πρόσφατη αναφορά' => fn (): int => (new EmotionEntityRelation())->cleanUpOldRelations(),

@@ -66,6 +66,7 @@ class AuthController {
 
         // ελευθερωνει email/username λογαριασμων που εληξαν
         $this->userModel->purgeExpiredDeletions();
+        $this->userModel->purgeUnverified();
 
         if($this->userModel->emailExists($email)) {
             $this->redirectWithError('/register','Το email χρησιμοποιείται ήδη');
@@ -104,6 +105,7 @@ class AuthController {
 
         // πρωτα σβηνουμε οσους ληξαν, ωστε να μη γινεται επαναφορα μετα τις 30 μερες
         $this->userModel->purgeExpiredDeletions();
+        $this->userModel->purgeUnverified();
 
         $user = $this->userModel->findDbEmail($email);
         // και οταν δεν υπαρχει το email τρεχει password_verify, ωστε ο χρονος να μη δειχνει ποια emails υπαρχουν
