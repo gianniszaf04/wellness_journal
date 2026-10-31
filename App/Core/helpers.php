@@ -28,6 +28,12 @@ function current_user_id(): ?int {
     return isset($_SESSION['user_id']) ? (int) $_SESSION['user_id'] : null ;
 }
 
+function release_session(): void {
+    if (session_status() === PHP_SESSION_ACTIVE) {
+        session_write_close();
+    }
+}
+
 function json_response (mixed $data , int $status = 200) : void {
     http_response_code($status);
     header('Content-type: application/json; charset=utf-8');

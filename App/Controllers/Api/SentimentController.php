@@ -20,6 +20,7 @@ class SentimentController
     {
         $request = new Request();
         $text = mb_substr(trim((string) $request->input('text', '')), 0, self::MAX_LENGTH);
+        release_session();
 
         // οι λεξεις-κλειδια ελεγχονται και σε μικρα κειμενα, π.χ. "θέλω να πεθάνω"
         if (mb_strlen($text) < self::MIN_LENGTH) {

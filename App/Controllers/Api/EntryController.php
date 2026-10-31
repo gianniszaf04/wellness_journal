@@ -41,6 +41,8 @@ class EntryController
             $entryDate = date('Y-m-d');
         }
 
+        release_session();
+
         $id = $this->entryModel->create($userId, $body, $entryDate);
         if ($id === false) {
             json_response(['success' => false, 'error' => 'Αποτυχία δημιουργίας καταγραφής.'], 500);
@@ -319,6 +321,8 @@ class EntryController
 
         $body = trim((string) $request->input('body', ''));
         $this->validateBody($body);
+
+        release_session();
 
         $this->entryModel->update($entryId, $userId, $body);
 
