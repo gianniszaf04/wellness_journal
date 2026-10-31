@@ -59,12 +59,12 @@
             <div class="stats">
                 <div class="stat"><b><?= (int) $total ?></b><small><?= $total === 1 ? 'σελίδα' : 'σελίδες' ?></small></div>
                 <div class="stat"><b><?= e($weekAverage ?? '–') ?></b><small>μέση διάθεση</small></div>
-                <div class="stat"><b><?= e($topEmotion ?? '–') ?></b><small>κυρίαρχο</small></div>
+                <div class="stat"><b class="stat__word"><?= e($topEmotion ?? '–') ?></b><small>κυρίαρχο</small></div>
             </div>
             <div class="week">
                 <?php foreach ($week as $day): ?>
                     <div title="<?= e($day['title']) ?>">
-                        <i class="<?= $day['mood'] ? '' : 'empty' ?>"<?= $day['mood'] ? ' style="background: var(--mood-' . $day['mood'] . ')"' : '' ?>></i>
+                        <i class="<?= $day['mood'] ? '' : 'is-empty' ?>"<?= $day['mood'] ? ' style="background: var(--mood-' . $day['mood'] . ')"' : '' ?>></i>
                         <span><?= e($day['label']) ?></span>
                     </div>
                 <?php endforeach; ?>
