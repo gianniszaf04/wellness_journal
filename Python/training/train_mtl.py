@@ -18,6 +18,7 @@ import sys
 import time
 from datetime import datetime
 
+import numpy as np
 import pandas as pd
 import torch
 from sklearn.metrics import average_precision_score, f1_score
@@ -53,6 +54,8 @@ IGNORE = -100  # δειγματα χωρις annotation σε ενα task -> δε
 # λιγοτερα δειγματα με annotation -> το task δεν δηλωνεται trained, οποτε το PHP δεν δειχνει τα αποτελεσματα του
 MIN_TASK_EXAMPLES = 50
 MIN_VAL_POSITIVES = 5
+THRESHOLD_GRID = np.round(np.arange(1, 20) * 0.05, 2)
+BOOTSTRAP_SAMPLES = 100
 WEIGHTED_TASKS = ("sentiment", "risk")
 
 
@@ -237,6 +240,34 @@ def micro_f1(probs, y, covered, thresholds) -> float:
     return float(2 * tp / denom) if denom else 1.0
 
 
+def f1_curve(y: np.ndarray, probs: np.ndarray) -> np.ndarray:
+    pred = probs[None, :] >= THRESHOLD_GRID[:, None]
+    tp = (pred & y).sum(1)
+    denom = 2 * tp + (pred & ~y).sum(1) + (~pred & y).sum(1)
+    return np.where(denom > 0, 2 * tp / np.maximum(denom, 1), 0.0)
+
+
+def one_se_thresholds(t: str, output: dict, labels: list[str], seed: int) -> dict:
+    rng = np.random.default_rng(seed)
+    thresholds = {}
+    for i, label in enumerate(LABEL_SETS[t]):
+        if label not in labels:
+            continue
+        rows = output["covered"][:, i] > 0
+        y = output["y"][rows, i].numpy() > 0
+        probs = output["probs"][rows, i].numpy()
+        if y.sum() < MIN_VAL_POSITIVES:
+            thresholds[label] = MULTI_LABEL_THRESHOLD
+            continue
+        f1 = f1_curve(y, probs)
+        best = int(f1.argmax())
+        samples = rng.integers(0, len(y), (BOOTSTRAP_SAMPLES, len(y)))
+        se = np.std([f1_curve(y[s], probs[s])[best] for s in samples])
+        close = np.flatnonzero(f1 >= f1[best] - se)
+        thresholds[label] = float(THRESHOLD_GRID[close[np.abs(THRESHOLD_GRID[close] - MULTI_LABEL_THRESHOLD).argmin()]])
+    return thresholds
+
+
 def multi_label_scores(t: str, output: dict, labels: list[str]) -> tuple[float, float]:
     keep = torch.tensor([1.0 if l in labels else 0.0 for l in LABEL_SETS[t]])
     covered = output["covered"] * keep
@@ -384,6 +415,8 @@ def main():
             "pos_weight": {t: {l: x for l, x in zip(LABEL_SETS[t], positive[t]) if l in trained_labels[t]}
                            for t in trained_labels},
             "selection_metric": "macro-F1 (single-label), micro-F1 με οριο 0.5 (multi-label, μονο trained labels)",
+            "thresholds": f"multi-label: κανονας 1-SE στο best epoch (bootstrap {BOOTSTRAP_SAMPLES}, πλεγμα 0.05-0.95, "
+                          "το πιο κοντινο στο 0.5 εντος 1 SE απο το καλυτερο F1), single-label: argmax",
         },
         "trained_tasks": trained_tasks,
         "trained_labels": trained_labels,
@@ -410,6 +443,7 @@ def main():
            for t in MULTI_LABEL_TASKS}
 
     best_val = -1.0  # κραταμε το καλυτερο checkpoint (οχι το τελευταιο epoch)
+    best_outputs = {}
 
     for epoch in range(1, args.epochs + 1):
         model.train()
@@ -469,6 +503,7 @@ def main():
             torch.save({k: v.cpu() for k, v in model.state_dict().items()}, WEIGHTS_OUT)
             print(f"    [*] new best (mean={mean_score:.3f}) -> saved {WEIGHTS_OUT}")
             run["best"] = {"epoch": epoch, "mean": round(mean_score, 4)}
+            best_outputs = outputs
 
         run["epochs"].append({
             "epoch": epoch,
@@ -483,9 +518,15 @@ def main():
         })
         save_run(run_dir, run)
 
+    thresholds = {t: one_se_thresholds(t, best_outputs[t], trained_labels[t], args.seed)
+                  for t in trained_labels if t in best_outputs}
+    for t, th in thresholds.items():
+        print(f"[*] {t} ορια (1-SE): " + ", ".join(f"{l}={x}" for l, x in th.items()))
+    run["thresholds"] = thresholds
+
     with open(CONFIG_OUT, "w", encoding="utf-8") as f:
         json.dump({"model_name": MODEL_NAME, "max_len": MAX_LEN, "labels": LABEL_SETS, "trained_tasks": trained_tasks,
-                   "trained_labels": trained_labels}, f, ensure_ascii=False, indent=2)
+                   "trained_labels": trained_labels, "thresholds": thresholds}, f, ensure_ascii=False, indent=2)
 
     run["finished"] = datetime.now().isoformat(timespec="seconds")
     run["minutes"] = round((time.time() - started) / 60, 1)
