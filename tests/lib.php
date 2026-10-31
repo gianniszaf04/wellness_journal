@@ -233,13 +233,16 @@ function make_user(?string $password = null): TestUser
 
     $http = new Http();
     $http->form('register', ['username' => 't' . $suffix, 'name' => 'Test', 'email' => $email, 'password' => $password], 'register');
-    $login = $http->form('login', ['email' => $email, 'password' => $password], 'login');
-    assert_same('dashboard', $login->redirect(), "login του {$email}");
 
     $stmt = db()->prepare('SELECT id FROM users WHERE email = :email');
     $stmt->execute([':email' => $email]);
+    $id = (int) $stmt->fetchColumn();
+    db()->prepare('UPDATE users SET email_verified_at = NOW() WHERE id = :id')->execute([':id' => $id]);
 
-    return new TestUser((int) $stmt->fetchColumn(), $email, $password, $http);
+    $login = $http->form('login', ['email' => $email, 'password' => $password], 'login');
+    assert_same('dashboard', $login->redirect(), "login του {$email}");
+
+    return new TestUser($id, $email, $password, $http);
 }
 
 // Ψευτικο AI στη διευθυνση του AI_SERVICE_URL, με τον ενσωματωμενο server της PHP
