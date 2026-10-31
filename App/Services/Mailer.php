@@ -11,6 +11,10 @@ require_once BASE_PATH . 'App/Libraries/PHPMailer/SMTP.php';
 
 class Mailer {
     public function send(string $to, string $subject, string $body): bool {
+        if (str_ends_with(strtolower(trim($to)), '.invalid')) {
+            return false;
+        }
+
         $host = (string) getenv('MAIL_HOST');
         $username = (string) getenv('MAIL_USERNAME');
 
