@@ -7,6 +7,7 @@ use App\Middleware\RequireGuest;
 use App\Middleware\VerifyCsrf;
 use App\Middleware\RateLimit;
 use App\Middleware\RateLimitLive;
+use App\Middleware\RateLimitEntries;
 
 use App\Controllers\HomeController;
 use App\Controllers\AuthController;
@@ -58,9 +59,9 @@ $router->group(['middleware' => [RequireLogin::class, VerifyCsrf::class]], funct
 
     //Api
     $router->get('/api/entries',              [ApiEntryController::class,  'index'],           'api.entries.index');
-    $router->post('/api/entries',             [ApiEntryController::class,  'store'],           'api.entries.store');
+    $router->middleware([RateLimitEntries::class])->post('/api/entries', [ApiEntryController::class, 'store'], 'api.entries.store');
     $router->get('/api/entries/{id}',        [ApiEntryController::class,  'show'],            'api.entries.show');
-    $router->patch('/api/entries/{id}',       [ApiEntryController::class,  'update'],          'api.entries.update');
+    $router->middleware([RateLimitEntries::class])->patch('/api/entries/{id}', [ApiEntryController::class, 'update'], 'api.entries.update');
     $router->delete('/api/entries/{id}',     [ApiEntryController::class,'destroy'],           'api.entries.destroy');
     $router->middleware([RateLimitLive::class])->post('/api/sentiment/live', [ApiSentimentController::class,'analyzeLive'],  'api.sentiment.live');
     $router->get('/api/analytics/mood-trends',[ApiAnalyticsController::class,'getMoodTrends'],'api.analytics.trends');

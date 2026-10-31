@@ -8,7 +8,7 @@ class RateLimit {
 
     public function handle(): bool {
 
-        if (strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
+        if (in_array(strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET'), ['GET', 'HEAD'], true)) {
             return true ;
         }
 
@@ -95,9 +95,13 @@ class RateLimit {
         return $allowed;
     }
 
+    // μονο το path: αλλιως το /login?x=1, ?x=2... μετραει το καθενα χωριστα
+    protected static function scope(): string {
+        return rtrim((string) parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH), '/');
+    }
+
     private static function files(): array {
-        // μονο το path: αλλιως το /login?x=1, ?x=2... μετραει το καθενα χωριστα
-        $path = rtrim((string) parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH), '/');
+        $path = static::scope();
         $files = [self::fileFor(static::identity() . '|' . $path)];
 
         $email = $_POST['email'] ?? '';
