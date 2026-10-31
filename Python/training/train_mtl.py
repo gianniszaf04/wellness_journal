@@ -52,9 +52,7 @@ SEED = 42
 IGNORE = -100  # δειγματα χωρις annotation σε ενα task -> δεν μετρανε στο loss
 # λιγοτερα δειγματα με annotation -> το task δεν δηλωνεται trained, οποτε το PHP δεν δειχνει τα αποτελεσματα του
 MIN_TASK_EXAMPLES = 50
-THRESHOLD_GRID = [round(0.05 * i, 2) for i in range(1, 20)]
 MIN_VAL_POSITIVES = 5
-TUNED_BINARY_TASKS = ("irony", "distortion")
 WEIGHTED_TASKS = ("sentiment", "risk")
 
 
@@ -193,7 +191,6 @@ def evaluate(model, loader, device) -> tuple[dict, dict, dict]:
     y_true = {t: [] for t in TASKS if t not in MULTI_LABEL_TASKS}
     y_pred = {t: [] for t in TASKS if t not in MULTI_LABEL_TASKS}
     outputs = {t: {"probs": [], "y": [], "covered": []} for t in MULTI_LABEL_TASKS}
-    outputs |= {t: {"probs": [], "y": []} for t in TUNED_BINARY_TASKS}
     for batch in loader:
         logits = model(batch["input_ids"].to(device), batch["attention_mask"].to(device))
         for t in TASKS:
@@ -217,9 +214,6 @@ def evaluate(model, loader, device) -> tuple[dict, dict, dict]:
                 correct[t] += int((pred == y).sum())
                 y_true[t] += y.cpu().tolist()
                 y_pred[t] += pred.cpu().tolist()
-                if t in TUNED_BINARY_TASKS:
-                    outputs[t]["probs"].append(torch.softmax(logits[t][mask], dim=-1)[:, 1].cpu())
-                    outputs[t]["y"].append(y.cpu())
 
     scores, accuracy = {}, {}
     for t in TASKS:
@@ -243,57 +237,17 @@ def micro_f1(probs, y, covered, thresholds) -> float:
     return float(2 * tp / denom) if denom else 1.0
 
 
-def tune_thresholds(t: str, output: dict, labels: list[str]) -> dict:
-    thresholds = {}
-    for i, label in enumerate(LABEL_SETS[t]):
-        if label not in labels:
-            continue
-        rows = output["covered"][:, i] > 0
-        y = output["y"][rows, i]
-        probs = output["probs"][rows, i]
-        if y.sum() < MIN_VAL_POSITIVES:
-            thresholds[label] = MULTI_LABEL_THRESHOLD
-            continue
-        best_th, best_f1 = MULTI_LABEL_THRESHOLD, -1.0
-        for th in THRESHOLD_GRID:
-            pred = (probs >= th).float()
-            tp = float((pred * y).sum())
-            denom = 2 * tp + float((pred * (1 - y)).sum()) + float(((1 - pred) * y).sum())
-            f1 = 2 * tp / denom if denom else 0.0
-            if f1 > best_f1:
-                best_th, best_f1 = th, f1
-        thresholds[label] = best_th
-    return thresholds
-
-
-def tune_binary_threshold(output: dict) -> tuple[float, float, float]:
-    y = output["y"].tolist()
-    probs = output["probs"]
-    default = f1_score(y, (probs > 0.5).long().tolist(), average="macro", zero_division=0)
-    if sum(y) < MIN_VAL_POSITIVES or len(y) - sum(y) < MIN_VAL_POSITIVES:
-        return 0.5, default, default
-    best_th, best_f1 = 0.5, default
-    for th in THRESHOLD_GRID:
-        f1 = f1_score(y, (probs > th).long().tolist(), average="macro", zero_division=0)
-        if f1 > best_f1:
-            best_th, best_f1 = th, f1
-    return best_th, default, best_f1
-
-
-def multi_label_scores(t: str, output: dict, labels: list[str]) -> tuple[float, float, float]:
-    thresholds = tune_thresholds(t, output, labels)
+def multi_label_scores(t: str, output: dict, labels: list[str]) -> tuple[float, float]:
     keep = torch.tensor([1.0 if l in labels else 0.0 for l in LABEL_SETS[t]])
     covered = output["covered"] * keep
-    per_label = torch.tensor([thresholds.get(l, MULTI_LABEL_THRESHOLD) for l in LABEL_SETS[t]])
-    tuned = micro_f1(output["probs"], output["y"], covered, per_label)
-    default = micro_f1(output["probs"], output["y"], covered, MULTI_LABEL_THRESHOLD)
+    f1 = micro_f1(output["probs"], output["y"], covered, MULTI_LABEL_THRESHOLD)
     aps = []
     for i, label in enumerate(LABEL_SETS[t]):
         rows = covered[:, i] > 0
         y = output["y"][rows, i]
         if label in labels and MIN_VAL_POSITIVES <= int(y.sum()) < len(y):
             aps.append(average_precision_score(y.numpy(), output["probs"][rows, i].numpy()))
-    return tuned, default, sum(aps) / len(aps) if aps else 0.0
+    return f1, sum(aps) / len(aps) if aps else 0.0
 
 
 def pos_weights(ds: JournalDataset, t: str, labels: list[str]) -> list[float]:
@@ -429,8 +383,7 @@ def main():
             "multi_label_loss": "BCE μεσος ορος στα καλυπτομενα labels, pos_weight = sqrt(αρνητικα/θετικα)",
             "pos_weight": {t: {l: x for l, x in zip(LABEL_SETS[t], positive[t]) if l in trained_labels[t]}
                            for t in trained_labels},
-            "selection_metric": "macro-F1 (single-label), micro-F1 με ορια ανα label ρυθμισμενα στο validation "
-                                "καθε epoch (multi-label, μονο trained labels)",
+            "selection_metric": "macro-F1 (single-label), micro-F1 με οριο 0.5 (multi-label, μονο trained labels)",
         },
         "trained_tasks": trained_tasks,
         "trained_labels": trained_labels,
@@ -457,7 +410,6 @@ def main():
            for t in MULTI_LABEL_TASKS}
 
     best_val = -1.0  # κραταμε το καλυτερο checkpoint (οχι το τελευταιο epoch)
-    best_outputs = {}
 
     for epoch in range(1, args.epochs + 1):
         model.train()
@@ -501,15 +453,15 @@ def main():
         # μονο τα trained tasks μετρανε στο validation και στην επιλογη checkpoint
         all_scores, accuracy, outputs = evaluate(model, val_loader, device)
         scores = {t: s for t, s in all_scores.items() if t in trained_tasks}
-        f1_default, avg_precision = {}, {}
+        avg_precision = {}
         for t in MULTI_LABEL_TASKS & set(scores) & set(trained_labels):
-            scores[t], f1_default[t], avg_precision[t] = multi_label_scores(t, outputs[t], trained_labels[t])
+            scores[t], avg_precision[t] = multi_label_scores(t, outputs[t], trained_labels[t])
         mean_score = sum(scores.values()) / len(scores) if scores else 0.0
         mean_loss = epoch_loss / len(train_loader)
         score_str = " | ".join(f"{t}:{s:.2f}" for t, s in scores.items())
         print(f"Epoch {epoch:02d}/{args.epochs} | loss={mean_loss:.4f} | val[{score_str}] | mean={mean_score:.3f}")
-        for t in f1_default:
-            print(f"    {t}: F1 με οριο 0.5={f1_default[t]:.2f} | average precision={avg_precision[t]:.2f}")
+        for t in avg_precision:
+            print(f"    {t}: average precision={avg_precision[t]:.2f}")
 
         # Best-checkpoint: αποθηκευουμε μονο οταν βελτιωνεται ο μεσος ορος του validation
         if mean_score > best_val:
@@ -517,13 +469,11 @@ def main():
             torch.save({k: v.cpu() for k, v in model.state_dict().items()}, WEIGHTS_OUT)
             print(f"    [*] new best (mean={mean_score:.3f}) -> saved {WEIGHTS_OUT}")
             run["best"] = {"epoch": epoch, "mean": round(mean_score, 4)}
-            best_outputs = outputs
 
         run["epochs"].append({
             "epoch": epoch,
             "loss": round(mean_loss, 4),
             "val": {t: round(s, 4) for t, s in scores.items()},
-            "val_f1_at_0.5": {t: round(s, 4) for t, s in f1_default.items()},
             "val_average_precision": {t: round(s, 4) for t, s in avg_precision.items()},
             "task_loss": {t: round(task_loss_sum[t] / task_batches[t], 4) for t in TASKS if task_batches[t]},
             "val_untrained": {t: round(s, 4) for t, s in all_scores.items() if t not in trained_tasks},
@@ -533,32 +483,9 @@ def main():
         })
         save_run(run_dir, run)
 
-    thresholds, threshold_f1 = {}, {}
-    for t in trained_labels:
-        if t not in best_outputs:
-            continue
-        thresholds[t] = tune_thresholds(t, best_outputs[t], trained_labels[t])
-        per_label = torch.tensor([thresholds[t].get(l, MULTI_LABEL_THRESHOLD) for l in LABEL_SETS[t]])
-        output = best_outputs[t]
-        default_f1 = micro_f1(output["probs"], output["y"], output["covered"], MULTI_LABEL_THRESHOLD)
-        tuned_f1 = micro_f1(output["probs"], output["y"], output["covered"], per_label)
-        threshold_f1[t] = {"default": round(default_f1, 4), "tuned": round(tuned_f1, 4)}
-        print(f"[*] {t} ορια: " + ", ".join(f"{l}={th}" for l, th in thresholds[t].items()))
-        print(f"[*] {t} micro-F1 (val, best epoch): οριο 0.5={default_f1:.3f} | ορια ανα label={tuned_f1:.3f}")
-    binary_f1 = {}
-    for t in TUNED_BINARY_TASKS:
-        if t not in trained_tasks or t not in best_outputs:
-            continue
-        thresholds[t], default_f1, tuned_f1 = tune_binary_threshold(best_outputs[t])
-        binary_f1[t] = {"default": round(default_f1, 4), "tuned": round(tuned_f1, 4)}
-        print(f"[*] {t} οριο: {thresholds[t]} | macro-F1 (val, best epoch): οριο 0.5={default_f1:.3f} | ρυθμισμενο={tuned_f1:.3f}")
-    run["thresholds"] = thresholds
-    run["threshold_micro_f1"] = threshold_f1
-    run["threshold_macro_f1"] = binary_f1
-
     with open(CONFIG_OUT, "w", encoding="utf-8") as f:
         json.dump({"model_name": MODEL_NAME, "max_len": MAX_LEN, "labels": LABEL_SETS, "trained_tasks": trained_tasks,
-                   "trained_labels": trained_labels, "thresholds": thresholds}, f, ensure_ascii=False, indent=2)
+                   "trained_labels": trained_labels}, f, ensure_ascii=False, indent=2)
 
     run["finished"] = datetime.now().isoformat(timespec="seconds")
     run["minutes"] = round((time.time() - started) / 60, 1)
