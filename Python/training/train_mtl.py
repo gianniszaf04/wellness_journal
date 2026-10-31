@@ -12,6 +12,7 @@
 #   .venv/bin/python training/train_mtl.py --epochs 3 --batch-size 16 --data training/train.csv
 import argparse
 import json
+import math
 import os
 import sys
 import time
@@ -19,10 +20,10 @@ from datetime import datetime
 
 import pandas as pd
 import torch
-from sklearn.metrics import f1_score
+from sklearn.metrics import average_precision_score, f1_score
 from sklearn.model_selection import GroupShuffleSplit, train_test_split
-from torch.utils.data import Dataset, DataLoader
-from transformers import AutoTokenizer
+from torch.utils.data import Dataset, DataLoader, Sampler, default_collate
+from transformers import AutoTokenizer, get_linear_schedule_with_warmup
 
 # Επιτρεπουμε import απο τον γονικο φακελο (model_architecture, labels)
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -41,6 +42,11 @@ MAX_LEN = 128
 BATCH_SIZE = 16
 EPOCHS = 10
 LR = 2e-5
+HEAD_LR = 1e-4
+WARMUP_RATIO = 0.1
+GRAD_CLIP = 1.0
+MEGA_BATCHES = 50
+PAD_MULTIPLE = 16
 VAL_RATIO = 0.2
 SEED = 42
 IGNORE = -100  # δειγματα χωρις annotation σε ενα task -> δεν μετρανε στο loss
@@ -82,7 +88,8 @@ def parse_covered(value, target: list[float]) -> list[float]:
 class JournalDataset(Dataset):
     def __init__(self, df: pd.DataFrame, tokenizer):
         self.texts = df["text"].astype(str).tolist()
-        self.tokenizer = tokenizer
+        self.input_ids = tokenizer(self.texts, truncation=True, max_length=MAX_LEN)["input_ids"] if self.texts else []
+        self.pad_id = tokenizer.pad_token_id
         self.labels = []
         self.covered = []  # ανα γραμμη: {task: μασκα ανα label}, None χωρις annotation
         for _, row in df.iterrows():
@@ -104,15 +111,7 @@ class JournalDataset(Dataset):
         return len(self.texts)
 
     def __getitem__(self, idx):
-        enc = self.tokenizer(
-            self.texts[idx],
-            truncation=True, padding="max_length",
-            max_length=MAX_LEN, return_tensors="pt",
-        )
-        item = {
-            "input_ids": enc["input_ids"].squeeze(0),
-            "attention_mask": enc["attention_mask"].squeeze(0),
-        }
+        item = {"input_ids": torch.tensor(self.input_ids[idx], dtype=torch.long)}
         for t in TASKS:
             value = self.labels[idx][t]
             if t in MULTI_LABEL_TASKS:
@@ -122,6 +121,57 @@ class JournalDataset(Dataset):
             else:
                 item[t] = torch.tensor(value, dtype=torch.long)
         return item
+
+    def collate(self, items: list[dict]) -> dict:
+        longest = max(len(item["input_ids"]) for item in items)
+        width = min(MAX_LEN, math.ceil(longest / PAD_MULTIPLE) * PAD_MULTIPLE)
+        input_ids = torch.full((len(items), width), self.pad_id, dtype=torch.long)
+        attention_mask = torch.zeros((len(items), width), dtype=torch.long)
+        for row, item in enumerate(items):
+            n = len(item["input_ids"])
+            input_ids[row, :n] = item["input_ids"]
+            attention_mask[row, :n] = 1
+        batch = default_collate([{k: v for k, v in item.items() if k != "input_ids"} for item in items])
+        batch["input_ids"] = input_ids
+        batch["attention_mask"] = attention_mask
+        return batch
+
+
+class LengthGroupedBatchSampler(Sampler):
+    def __init__(self, lengths: list[int], batch_size: int, shuffle: bool, seed: int = SEED):
+        self.lengths = lengths
+        self.batch_size = batch_size
+        self.shuffle = shuffle
+        self.seed = seed
+        self.epoch = 0
+
+    def __len__(self):
+        return math.ceil(len(self.lengths) / self.batch_size)
+
+    def _cut(self, order: list[int]) -> list[list[int]]:
+        return [order[i:i + self.batch_size] for i in range(0, len(order), self.batch_size)]
+
+    def __iter__(self):
+        if not self.shuffle:
+            yield from self._cut(sorted(range(len(self.lengths)), key=lambda i: self.lengths[i]))
+            return
+        g = torch.Generator()
+        g.manual_seed(self.seed + self.epoch)
+        self.epoch += 1
+        order = torch.randperm(len(self.lengths), generator=g).tolist()
+        size = self.batch_size * MEGA_BATCHES
+        batches = []
+        for start in range(0, len(order), size):
+            chunk = sorted(order[start:start + size], key=lambda i: self.lengths[i], reverse=True)
+            batches += self._cut(chunk)
+        for i in torch.randperm(len(batches), generator=g).tolist():
+            yield batches[i]
+
+
+def make_loader(ds: JournalDataset, batch_size: int, shuffle: bool, seed: int = SEED) -> DataLoader:
+    lengths = [len(ids) for ids in ds.input_ids]
+    sampler = LengthGroupedBatchSampler(lengths, batch_size, shuffle, seed)
+    return DataLoader(ds, batch_sampler=sampler, collate_fn=ds.collate)
 
 
 def task_mask(batch, t, device):
@@ -230,6 +280,32 @@ def tune_binary_threshold(output: dict) -> tuple[float, float, float]:
     return best_th, default, best_f1
 
 
+def multi_label_scores(t: str, output: dict, labels: list[str]) -> tuple[float, float, float]:
+    thresholds = tune_thresholds(t, output, labels)
+    keep = torch.tensor([1.0 if l in labels else 0.0 for l in LABEL_SETS[t]])
+    covered = output["covered"] * keep
+    per_label = torch.tensor([thresholds.get(l, MULTI_LABEL_THRESHOLD) for l in LABEL_SETS[t]])
+    tuned = micro_f1(output["probs"], output["y"], covered, per_label)
+    default = micro_f1(output["probs"], output["y"], covered, MULTI_LABEL_THRESHOLD)
+    aps = []
+    for i, label in enumerate(LABEL_SETS[t]):
+        rows = covered[:, i] > 0
+        y = output["y"][rows, i]
+        if label in labels and MIN_VAL_POSITIVES <= int(y.sum()) < len(y):
+            aps.append(average_precision_score(y.numpy(), output["probs"][rows, i].numpy()))
+    return tuned, default, sum(aps) / len(aps) if aps else 0.0
+
+
+def pos_weights(ds: JournalDataset, t: str, labels: list[str]) -> list[float]:
+    rows = [(l[t], c[t]) for l, c in zip(ds.labels, ds.covered) if c[t] is not None]
+    weights = []
+    for i, label in enumerate(LABEL_SETS[t]):
+        pos = sum(y[i] * c[i] for y, c in rows)
+        neg = sum((1 - y[i]) * c[i] for y, c in rows)
+        weights.append(round(math.sqrt(neg / pos), 4) if label in labels and pos and neg else 1.0)
+    return weights
+
+
 def class_weights(labels: list[int], n_classes: int) -> list[float] | None:
     counts = [sum(1 for y in labels if y == c) for c in range(n_classes)]
     total = sum(counts)
@@ -266,6 +342,9 @@ def main():
     ap.add_argument("--data", default=None, help=f"default: {MERGED_PATH} αν υπαρχει, αλλιως {MANUAL_PATH}")
     ap.add_argument("--epochs", type=int, default=EPOCHS)
     ap.add_argument("--batch-size", type=int, default=BATCH_SIZE)
+    ap.add_argument("--head-lr", type=float, default=HEAD_LR, help="learning rate των κεφαλων (το BERT μενει στο LR)")
+    ap.add_argument("--seed", type=int, default=SEED,
+                    help="αρχικοποιηση των κεφαλων, dropout και σειρα των batches (ο χωρισμος train/val δεν αλλαζει)")
     ap.add_argument("--min-examples", type=int, default=MIN_TASK_EXAMPLES,
                     help="ελαχιστα δειγματα στο train για να θεωρηθει ενα task εκπαιδευμενο")
     ap.add_argument("--note", default="", help="περιγραφη του run, π.χ. τι αλλαξε απο το προηγουμενο")
@@ -273,7 +352,7 @@ def main():
     data_path = args.data or (MERGED_PATH if os.path.exists(MERGED_PATH) else MANUAL_PATH)
     started = time.time()
 
-    torch.manual_seed(SEED)
+    torch.manual_seed(args.seed)
     device = pick_device()
     print(f"[*] Device: {device}")
     print(f"[*] Data: {data_path}")
@@ -310,6 +389,10 @@ def main():
         if w:
             weights[t] = w
             print(f"[*] βαρη {t}: " + ", ".join(f"{l}={x}" for l, x in zip(LABEL_SETS[t], w)))
+    positive = {t: pos_weights(train_ds, t, trained_labels.get(t, [])) for t in MULTI_LABEL_TASKS}
+    for t in trained_labels:
+        print(f"[*] pos_weight {t}: " + ", ".join(
+            f"{l}={x}" for l, x in zip(LABEL_SETS[t], positive[t]) if l in trained_labels[t]))
 
     run_dir = os.path.join(RUNS_DIR, datetime.now().strftime("%Y-%m-%d_%H%M%S"))
     os.makedirs(run_dir, exist_ok=True)
@@ -333,12 +416,21 @@ def main():
             "epochs": args.epochs,
             "batch_size": args.batch_size,
             "lr": LR,
+            "head_lr": args.head_lr,
+            "schedule": f"linear warmup {WARMUP_RATIO:.0%}, μετα γραμμικη μειωση στο 0",
+            "grad_clip": GRAD_CLIP,
+            "batching": f"ομαδες ιδιου μηκους (x{MEGA_BATCHES} batches), padding ανα batch σε πολλαπλασιο του {PAD_MULTIPLE}"
+                        + (", αδειασμα της μνημης MPS καθε βημα" if device.type == "mps" else ""),
             "max_len": MAX_LEN,
-            "seed": SEED,
+            "seed": args.seed,
             "min_examples": args.min_examples,
             "multi_label_threshold": MULTI_LABEL_THRESHOLD,
             "class_weights": {t: dict(zip(LABEL_SETS[t], w)) for t, w in weights.items()},
-            "selection_metric": "macro-F1 (single-label), micro-F1 (multi-label)",
+            "multi_label_loss": "BCE μεσος ορος στα καλυπτομενα labels, pos_weight = sqrt(αρνητικα/θετικα)",
+            "pos_weight": {t: {l: x for l, x in zip(LABEL_SETS[t], positive[t]) if l in trained_labels[t]}
+                           for t in trained_labels},
+            "selection_metric": "macro-F1 (single-label), micro-F1 με ορια ανα label ρυθμισμενα στο validation "
+                                "καθε epoch (multi-label, μονο trained labels)",
         },
         "trained_tasks": trained_tasks,
         "trained_labels": trained_labels,
@@ -348,15 +440,21 @@ def main():
     save_run(run_dir, run)
     print(f"[*] Run -> {run_dir}")
 
-    train_loader = DataLoader(train_ds, batch_size=args.batch_size, shuffle=True)
-    val_loader = DataLoader(JournalDataset(val_df, tokenizer), batch_size=args.batch_size)
+    train_loader = make_loader(train_ds, args.batch_size, shuffle=True, seed=args.seed)
+    val_loader = make_loader(JournalDataset(val_df, tokenizer), args.batch_size, shuffle=False)
 
     model = WellnessMTLModel().to(device)
-    optimizer = torch.optim.AdamW(model.parameters(), lr=LR)
+    optimizer = torch.optim.AdamW([
+        {"params": model.bert.parameters(), "lr": LR},
+        {"params": model.heads.parameters(), "lr": args.head_lr},
+    ])
+    total_steps = args.epochs * len(train_loader)
+    scheduler = get_linear_schedule_with_warmup(optimizer, int(WARMUP_RATIO * total_steps), total_steps)
     ce = torch.nn.CrossEntropyLoss(ignore_index=IGNORE)
     ce_weighted = {t: torch.nn.CrossEntropyLoss(weight=torch.tensor(w, device=device), ignore_index=IGNORE)
                    for t, w in weights.items()}
-    bce = torch.nn.BCEWithLogitsLoss(reduction="none")  # ανα label, για τη μασκα καλυψης
+    bce = {t: torch.nn.BCEWithLogitsLoss(reduction="none", pos_weight=torch.tensor(positive[t], device=device))
+           for t in MULTI_LABEL_TASKS}
 
     best_val = -1.0  # κραταμε το καλυτερο checkpoint (οχι το τελευταιο epoch)
     best_outputs = {}
@@ -364,6 +462,8 @@ def main():
     for epoch in range(1, args.epochs + 1):
         model.train()
         epoch_loss = 0.0
+        task_loss_sum = {t: 0.0 for t in TASKS}
+        task_batches = {t: 0 for t in TASKS}
         for batch in train_loader:
             optimizer.zero_grad()
             logits = model(batch["input_ids"].to(device), batch["attention_mask"].to(device))
@@ -378,27 +478,38 @@ def main():
                 y = batch[t].to(device)
                 if t in MULTI_LABEL_TASKS:
                     covered = batch[f"{t}_mask"].to(device)
-                    task_loss = (bce(logits[t], y) * covered).sum() / covered.sum()
+                    task_loss = (bce[t](logits[t], y) * covered).sum() / covered.sum()
                 elif t in ce_weighted:
                     task_loss = ce_weighted[t](logits[t], y)
                 else:
                     task_loss = ce(logits[t], y)
+                task_loss_sum[t] += task_loss.item()
+                task_batches[t] += 1
                 loss = task_loss if loss is None else loss + task_loss
 
             if loss is None:
                 continue
 
             loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), GRAD_CLIP)
             optimizer.step()
+            scheduler.step()
+            if device.type == "mps":
+                torch.mps.empty_cache()
             epoch_loss += loss.item()
 
         # μονο τα trained tasks μετρανε στο validation και στην επιλογη checkpoint
         all_scores, accuracy, outputs = evaluate(model, val_loader, device)
         scores = {t: s for t, s in all_scores.items() if t in trained_tasks}
+        f1_default, avg_precision = {}, {}
+        for t in MULTI_LABEL_TASKS & set(scores) & set(trained_labels):
+            scores[t], f1_default[t], avg_precision[t] = multi_label_scores(t, outputs[t], trained_labels[t])
         mean_score = sum(scores.values()) / len(scores) if scores else 0.0
         mean_loss = epoch_loss / len(train_loader)
         score_str = " | ".join(f"{t}:{s:.2f}" for t, s in scores.items())
         print(f"Epoch {epoch:02d}/{args.epochs} | loss={mean_loss:.4f} | val[{score_str}] | mean={mean_score:.3f}")
+        for t in f1_default:
+            print(f"    {t}: F1 με οριο 0.5={f1_default[t]:.2f} | average precision={avg_precision[t]:.2f}")
 
         # Best-checkpoint: αποθηκευουμε μονο οταν βελτιωνεται ο μεσος ορος του validation
         if mean_score > best_val:
@@ -412,6 +523,9 @@ def main():
             "epoch": epoch,
             "loss": round(mean_loss, 4),
             "val": {t: round(s, 4) for t, s in scores.items()},
+            "val_f1_at_0.5": {t: round(s, 4) for t, s in f1_default.items()},
+            "val_average_precision": {t: round(s, 4) for t, s in avg_precision.items()},
+            "task_loss": {t: round(task_loss_sum[t] / task_batches[t], 4) for t in TASKS if task_batches[t]},
             "val_untrained": {t: round(s, 4) for t, s in all_scores.items() if t not in trained_tasks},
             "val_accuracy": {t: round(a, 4) for t, a in accuracy.items()},
             "mean": round(mean_score, 4),

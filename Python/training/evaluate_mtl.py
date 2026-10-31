@@ -6,11 +6,10 @@ import sys
 import pandas as pd
 import torch
 from sklearn.metrics import confusion_matrix, precision_recall_fscore_support
-from torch.utils.data import DataLoader
 from transformers import AutoTokenizer
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-from train_mtl import CONFIG_OUT, MERGED_PATH, WEIGHTS_OUT, JournalDataset, task_mask
+from train_mtl import CONFIG_OUT, MERGED_PATH, WEIGHTS_OUT, JournalDataset, make_loader, task_mask
 from model_architecture import MODEL_NAME, MODEL_REVISION, WellnessMTLModel, pick_device
 from labels import LABEL_SETS, MULTI_LABEL_TASKS, MULTI_LABEL_THRESHOLD, TASKS
 
@@ -124,7 +123,7 @@ def main():
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, revision=MODEL_REVISION)
     model = WellnessMTLModel().to(device)
     model.load_state_dict(torch.load(args.weights, map_location=device, weights_only=True))
-    loader = DataLoader(JournalDataset(df, tokenizer), batch_size=args.batch_size)
+    loader = make_loader(JournalDataset(df, tokenizer), args.batch_size, shuffle=False)
     print(f"[*] {args.data} ({args.split}): {len(df)} γραμμες | {args.weights} | {device}")
     out = collect(model, loader, device)
 
