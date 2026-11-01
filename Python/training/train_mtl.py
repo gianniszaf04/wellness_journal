@@ -317,6 +317,11 @@ def split(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     return train_test_split(df, test_size=VAL_RATIO, random_state=SEED)
 
 
+def annotated_counts(ds: JournalDataset) -> dict:
+    return {t: sum((l[t] is not None) if t in MULTI_LABEL_TASKS else (l[t] != IGNORE) for l in ds.labels)
+            for t in TASKS}
+
+
 def save_run(run_dir: str, run: dict) -> None:
     with open(os.path.join(run_dir, "run.json"), "w", encoding="utf-8") as f:
         json.dump(run, f, ensure_ascii=False, indent=2)
@@ -331,7 +336,8 @@ def main():
     ap.add_argument("--seed", type=int, default=SEED,
                     help="αρχικοποιηση των κεφαλων, dropout και σειρα των batches (ο χωρισμος train/val δεν αλλαζει)")
     ap.add_argument("--min-examples", type=int, default=MIN_TASK_EXAMPLES,
-                    help="ελαχιστα δειγματα στο train για να θεωρηθει ενα task εκπαιδευμενο")
+                    help="ελαχιστα δειγματα στο train για να θεωρηθει ενα task εκπαιδευμενο, "
+                         "και στο validation για να μετρησει στην επιλογη checkpoint")
     ap.add_argument("--note", default="", help="περιγραφη του run, π.χ. τι αλλαξε απο το προηγουμενο")
     args = ap.parse_args()
     data_path = args.data or (MERGED_PATH if os.path.exists(MERGED_PATH) else MANUAL_PATH)
@@ -350,15 +356,20 @@ def main():
 
     train_ds = JournalDataset(train_df, tokenizer)
     # tasks με annotation στο train set, τα υπολοιπα heads μενουν ανεκπαιδευτα
-    annotated = {t: sum(
-        (l[t] is not None) if t in MULTI_LABEL_TASKS else (l[t] != IGNORE) for l in train_ds.labels
-    ) for t in TASKS}
+    annotated = annotated_counts(train_ds)
     print("[*] δειγματα ανα task: " + ", ".join(f"{t}={n}" for t, n in annotated.items()))
     trained_tasks = [t for t in TASKS if annotated[t] >= args.min_examples]
     too_few = [t for t in TASKS if 0 < annotated[t] < args.min_examples]
     print(f"[*] trained tasks: {trained_tasks}")
     if too_few:
         print(f"[!] λιγοτερα απο {args.min_examples} δειγματα, δεν δηλωνονται trained: {too_few}")
+    val_ds = JournalDataset(val_df, tokenizer)
+    annotated_val = annotated_counts(val_ds)
+    selection_tasks = [t for t in trained_tasks if annotated_val[t] >= args.min_examples]
+    outside_selection = [t for t in trained_tasks if t not in selection_tasks]
+    if outside_selection:
+        print(f"[!] λιγοτερα απο {args.min_examples} δειγματα στο validation, εκπαιδευονται αλλα δεν μετρανε στην "
+              "επιλογη checkpoint: " + ", ".join(f"{t}={annotated_val[t]}" for t in outside_selection))
     # labels που δεν καλυπτει καμια πηγη μενουν ανεκπαιδευτα (sigmoid γυρω στο 0.5) -> το main.py τα κρυβει
     trained_labels = {}
     for t in MULTI_LABEL_TASKS & set(trained_tasks):
@@ -396,6 +407,7 @@ def main():
             "val": len(val_df),
             "sources": sources,
             "annotated_train": annotated,
+            "annotated_val": annotated_val,
         },
         "params": {
             "epochs": args.epochs,
@@ -414,11 +426,13 @@ def main():
             "multi_label_loss": "BCE μεσος ορος στα καλυπτομενα labels, pos_weight = sqrt(αρνητικα/θετικα)",
             "pos_weight": {t: {l: x for l, x in zip(LABEL_SETS[t], positive[t]) if l in trained_labels[t]}
                            for t in trained_labels},
-            "selection_metric": "macro-F1 (single-label), micro-F1 με οριο 0.5 (multi-label, μονο trained labels)",
+            "selection_metric": "μεσος ορος: macro-F1 (single-label), micro-F1 με οριο 0.5 (multi-label, μονο trained "
+                                f"labels), μονο tasks με >= {args.min_examples} δειγματα στο validation",
             "thresholds": f"multi-label: κανονας 1-SE στο best epoch (bootstrap {BOOTSTRAP_SAMPLES}, πλεγμα 0.05-0.95, "
                           "το πιο κοντινο στο 0.5 εντος 1 SE απο το καλυτερο F1), single-label: argmax",
         },
         "trained_tasks": trained_tasks,
+        "selection_tasks": selection_tasks,
         "trained_labels": trained_labels,
         "epochs": [],
         "best": None,
@@ -427,7 +441,7 @@ def main():
     print(f"[*] Run -> {run_dir}")
 
     train_loader = make_loader(train_ds, args.batch_size, shuffle=True, seed=args.seed)
-    val_loader = make_loader(JournalDataset(val_df, tokenizer), args.batch_size, shuffle=False)
+    val_loader = make_loader(val_ds, args.batch_size, shuffle=False)
 
     model = WellnessMTLModel().to(device)
     optimizer = torch.optim.AdamW([
@@ -486,14 +500,16 @@ def main():
 
         # μονο τα trained tasks μετρανε στο validation και στην επιλογη checkpoint
         all_scores, accuracy, outputs = evaluate(model, val_loader, device)
-        scores = {t: s for t, s in all_scores.items() if t in trained_tasks}
+        scores = {t: s for t, s in all_scores.items() if t in selection_tasks}
+        outside_scores = {t: s for t, s in all_scores.items() if t in outside_selection}
         avg_precision = {}
         for t in MULTI_LABEL_TASKS & set(scores) & set(trained_labels):
             scores[t], avg_precision[t] = multi_label_scores(t, outputs[t], trained_labels[t])
         mean_score = sum(scores.values()) / len(scores) if scores else 0.0
         mean_loss = epoch_loss / len(train_loader)
         score_str = " | ".join(f"{t}:{s:.2f}" for t, s in scores.items())
-        print(f"Epoch {epoch:02d}/{args.epochs} | loss={mean_loss:.4f} | val[{score_str}] | mean={mean_score:.3f}")
+        print(f"Epoch {epoch:02d}/{args.epochs} | loss={mean_loss:.4f} | val[{score_str}] | mean={mean_score:.3f}"
+              + "".join(f" | εκτος επιλογης {t}:{s:.2f} ({annotated_val[t]} δειγματα)" for t, s in outside_scores.items()))
         for t in avg_precision:
             print(f"    {t}: average precision={avg_precision[t]:.2f}")
 
@@ -511,6 +527,7 @@ def main():
             "val": {t: round(s, 4) for t, s in scores.items()},
             "val_average_precision": {t: round(s, 4) for t, s in avg_precision.items()},
             "task_loss": {t: round(task_loss_sum[t] / task_batches[t], 4) for t in TASKS if task_batches[t]},
+            "val_outside_selection": {t: round(s, 4) for t, s in outside_scores.items()},
             "val_untrained": {t: round(s, 4) for t, s in all_scores.items() if t not in trained_tasks},
             "val_accuracy": {t: round(a, 4) for t, a in accuracy.items()},
             "mean": round(mean_score, 4),
