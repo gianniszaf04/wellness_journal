@@ -33,6 +33,7 @@ MANUAL = os.path.join(PY_ROOT, "training", "dataset.csv")  # τα χειρογρ
 OUT = os.path.join(PY_ROOT, "training", "train.csv")
 OUT_COLUMNS = ["id", "source", "group", "split", "text"] + TASKS + COVERED
 NONE = "none"
+TRAIN_ONLY_SOURCES = {"synthetic"}
 
 _SPACES = re.compile(r"\s+")
 _GREEK = re.compile(r"[Ͱ-Ͽἀ-῿]")
@@ -257,7 +258,7 @@ def main():
 
     rows = list(merged.values())
     for r in rows:
-        r["split"] = split_of(r["group"], args.val_ratio)
+        r["split"] = "train" if r["source"] in TRAIN_ONLY_SOURCES else split_of(r["group"], args.val_ratio)
 
     os.makedirs(os.path.dirname(args.out), exist_ok=True)
     with open(args.out, "w", encoding="utf-8", newline="") as f:
