@@ -16,6 +16,7 @@ from labels import LABEL_SETS
 SYNTHETIC = os.path.join(HERE, "synthetic")
 GENERATED = os.path.join(SYNTHETIC, "generated.csv")
 REVIEW = os.path.join(SYNTHETIC, "review.csv")
+EVAL = os.path.join(SYNTHETIC, "mixed_eval.csv")
 FIELDS = ["id", "category", "status", "reason", "text", "labels", "request", "blind", "model"]
 GROUP_SIZE = 20
 
@@ -79,6 +80,15 @@ def mixed(rng):
                                                 f"προτάσεις, και το τέλος δείχνει καθαρά «{bad}» και κλείνει αρνητικά.")
 
 
+def balanced(rng):
+    bad = rng.choice(["Λύπη", "Θυμός", "Άγχος", "Κούραση"])
+    good = rng.choice(["Χαρά", "Ηρεμία", "Αγάπη", "Ενθουσιασμός"])
+    first, second = (bad, good) if rng.random() < 0.5 else (good, bad)
+    return "Ουδέτερο", [first, second], [], False, (f"Μικτή μέρα που ισορροπεί: ένα μέρος δείχνει καθαρά «{first}» και "
+                                                    f"ένα άλλο καθαρά «{second}», περίπου ίσα σε βάρος. Το τέλος δεν "
+                                                    f"γέρνει ούτε προς το καλό ούτε προς το κακό.")
+
+
 def calm(rng):
     extra = rng.choice([[], [], ["Χαρά"], ["Αγάπη"]])
     return "Θετικό", ["Ηρεμία"] + extra, [], False, "Γαλήνη, χαλάρωση ή ανακούφιση που φαίνεται καθαρά."
@@ -129,6 +139,14 @@ CATEGORIES = {
     "irony": (200, irony),
     "hard_no": (250, hard_no),
     "distortion": (300, distortion),
+}
+EVAL_CATEGORIES = {
+    "mixed": (60, mixed),
+    "balanced": (20, balanced),
+    "positive": (8, positive),
+    "hard_no": (4, hard_no),
+    "anxiety": (4, anxiety),
+    "neutral": (4, neutral),
 }
 
 DEFINITIONS = """Πολικότητα (μία):
@@ -227,14 +245,14 @@ LABEL_SCHEMA = {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {
 }, "required": ["i", "sentiment", "emotions", "distortion", "types", "irony", "risk"]}}
 
 
-def spec(category: str, k: int) -> dict:
-    rng = random.Random(f"{SEED}:{category}:{k}")
-    sentiment, emotions, types, ironic, hint = CATEGORIES[category][1](rng)
+def spec(category: str, k: int, table: dict = CATEGORIES, prefix: str = "syn") -> dict:
+    rng = random.Random(f"{SEED}:{category}:{k}" if prefix == "syn" else f"{SEED}:{prefix}:{category}:{k}")
+    sentiment, emotions, types, ironic, hint = table[category][1](rng)
     length = rng.choices(list(LENGTHS), LENGTH_WEIGHTS)[0]
-    if category == "mixed" and length == "σύντομο":
+    if (category == "mixed" or prefix != "syn") and length == "σύντομο":
         length = "μεσαίο"
     return {
-        "id": f"syn-{category}-{k:04d}", "group": f"syn-{category}-{k // GROUP_SIZE}", "category": category,
+        "id": f"{prefix}-{category}-{k:04d}", "group": f"{prefix}-{category}-{k // GROUP_SIZE}", "category": category,
         "persona": rng.choice(PERSONAS), "topic": rng.choice(TOPICS), "length": length, "name": rng.choice(NAMES),
         "sentiment": sentiment, "emotions": emotions, "types": types, "irony": ironic, "hint": hint,
     }
@@ -324,12 +342,12 @@ def export() -> None:
         print(f"-> {path}")
 
 
-def stats() -> None:
-    rows = read(GENERATED)
+def stats(path: str = GENERATED, table: dict = CATEGORIES) -> None:
+    rows = read(path)
     if not rows:
-        sys.exit(f"[!] Δεν υπαρχει ακομα το {GENERATED}")
+        sys.exit(f"[!] Δεν υπαρχει ακομα το {path}")
     print(f"{'κατηγορία':<12}{'δεκτά':>7}{'απορρ.':>8}{'ποσοστό':>9}{'λέξεις':>8}{'«Σήμερα»':>10}   συχνότεροι λόγοι απόρριψης")
-    for category in CATEGORIES:
+    for category in table:
         part = [r for r in rows if r["category"] == category]
         if not part:
             continue
@@ -455,18 +473,20 @@ def relabel(args) -> None:
 
 
 def run(args) -> None:
-    done = {r["id"] for r in read(GENERATED)}
-    seen = {text_key(r["text"]) for r in read(GENERATED) if r["status"] == "accepted"}
-    names = args.categories or list(CATEGORIES)
+    path, table, prefix = (EVAL, EVAL_CATEGORIES, "eval") if args.eval else (GENERATED, CATEGORIES, "syn")
+    done = {r["id"] for r in read(path)}
+    seen = {text_key(r["text"]) for p in (GENERATED, EVAL) for r in read(p) if r["status"] == "accepted"}
+    names = [c for c in (args.categories or list(table)) if c in table]
     todo = []
     for category in names:
-        target = CATEGORIES[category][0] if not args.per_category else min(args.per_category, CATEGORIES[category][0])
-        todo += [s for s in (spec(category, k) for k in range(target)) if s["id"] not in done]
+        target = table[category][0] if not args.per_category else min(args.per_category, table[category][0])
+        todo += [s for s in (spec(category, k, table, prefix) for k in range(target)) if s["id"] not in done]
     random.Random(SEED).shuffle(todo)
     calls = 2 * -(-len(todo) // args.batch)
-    print(f"[synthetic] {len(done)} ηδη ετοιμα, {len(todo)} για παραγωγη, ~{calls} κλησεις")
+    print(f"[synthetic] {len(done)} ηδη ετοιμα, {len(todo)} για παραγωγη, ~{calls} κλησεις -> {path}")
     if not todo:
-        export()
+        if not args.eval:
+            export()
         return
     if args.dry_run:
         print(WRITE_PROMPT)
@@ -478,8 +498,8 @@ def run(args) -> None:
         sys.exit("[!] Δεν βρεθηκε GEMINI_API_KEY (ουτε στο περιβαλλον ουτε στο .env).")
     label_model = args.label_model or args.model
     os.makedirs(SYNTHETIC, exist_ok=True)
-    new = not os.path.exists(GENERATED)
-    with open(GENERATED, "a", encoding="utf-8", newline="") as f:
+    new = not os.path.exists(path)
+    with open(path, "a", encoding="utf-8", newline="") as f:
         w = csv.DictWriter(f, fieldnames=FIELDS)
         if new:
             w.writeheader()
@@ -519,8 +539,9 @@ def run(args) -> None:
         except KeyboardInterrupt:
             print("\n[!] Διακοπη. Οτι εγινε εχει σωθει, ξανατρεξε για να συνεχισεις.")
             sys.exit(1)
-    stats()
-    export()
+    stats(path, table)
+    if not args.eval:
+        export()
 
 
 def main():
@@ -539,13 +560,15 @@ def main():
     ap.add_argument("--relabel", action="store_true",
                     help="νεος τυφλος ελεγχος σε ολα τα κειμενα του generated.csv, χωρις να ξαναγραφτουν")
     ap.add_argument("--review-score", action="store_true", help="αποτελεσμα του ελεγχου απο ανθρωπο στο review.csv")
+    ap.add_argument("--eval", action="store_true",
+                    help="σετ μετρησης μικτων κειμενων στο synthetic/mixed_eval.csv, δεν μπαινει ποτε στο training")
     args = ap.parse_args()
     if args.review_score:
         review_score()
     elif args.relabel:
         relabel(args)
     elif args.stats:
-        stats()
+        stats(EVAL, EVAL_CATEGORIES) if args.eval else stats()
     elif args.review:
         review(args.review)
     elif args.export:
