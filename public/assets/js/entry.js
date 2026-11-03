@@ -56,7 +56,7 @@
             li.textContent = message;
             notes.append(li);
         };
-        if (Number(entry.distortion_detected)) {
+        if (notes.dataset.distortion === '1' && Number(entry.distortion_detected)) {
             const types = (entry.distortion_types || []).map(row => row.name).join(', ');
             note(types
                 ? `Μια σκέψη που ίσως αξίζει να ξανακοιτάξεις: ${types.toLowerCase()}.`

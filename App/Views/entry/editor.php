@@ -45,7 +45,7 @@
             <p class="live__status muted" id="live-status">Ξεκίνα να γράφεις και θα σου πω τι διαβάζω.</p>
 
             <div class="live__emotions" id="live-emotions" hidden></div>
-            <ul class="live__notes" id="live-notes" hidden></ul>
+            <ul class="live__notes" id="live-notes" data-distortion="<?= SHOW_DISTORTION_NOTE ? '1' : '0' ?>" hidden></ul>
         </section>
 
         <?php [$soundLabel, $soundHint] = \App\Models\UserProfile::SOUND_LABELS[$sound]; ?>

@@ -14,6 +14,7 @@ $timezone = (string) getenv('APP_TIMEZONE');
 date_default_timezone_set(in_array($timezone, timezone_identifiers_list(), true) ? $timezone : 'Europe/Athens');
 ini_set('serialize_precision', '-1');
 define('APP_URL',rtrim((string) getenv('APP_URL'), '/'));
+define('SHOW_DISTORTION_NOTE', filter_var(getenv('SHOW_DISTORTION_NOTE'), FILTER_VALIDATE_BOOLEAN));
 require_once BASE_PATH . 'App/Core/helpers.php';
 
 spl_autoload_register(static function (string $class): void {

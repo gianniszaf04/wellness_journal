@@ -109,7 +109,7 @@
                 li.textContent = text;
                 this.notes.append(li);
             };
-            if (data.distortion?.detected) {
+            if (this.notes.dataset.distortion === '1' && data.distortion?.detected) {
                 const types = (data.distortion_types || []).join(', ');
                 note(types
                     ? `Μια σκέψη που ίσως αξίζει να ξανακοιτάξεις: ${types.toLowerCase()}.`

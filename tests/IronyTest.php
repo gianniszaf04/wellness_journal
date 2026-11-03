@@ -31,6 +31,29 @@ test('irony και distortion αποθηκεύονται και επιστρέφ
     assert_same([null, null, null, null], $edit('νέο κείμενο'), 'AI κάτω: σβήνει η παλιά τιμή');
 });
 
+test('η σημείωση διαστρέβλωσης ακολουθεί το SHOW_DISTORTION_NOTE, η ειρωνεία φαίνεται πάντα', function (): void {
+    $user = make_user();
+    $id = $user->http->api('POST', 'api/entries', ['body' => 'Μια σελίδα για τη σημείωση.'])->json()['data']['id'];
+    $set = fn (int $irony, int $distortion) => db()->prepare('UPDATE entries SET irony_detected = :i, distortion_detected = :d WHERE id = :id')
+        ->execute([':i' => $irony, ':d' => $distortion, ':id' => $id]);
+    $notes = function () use ($user, $id): array {
+        $html = $user->http->get("entry/{$id}")->body;
+        preg_match('/<ul class="live__notes" id="feel-notes" data-distortion="([01])"( hidden)?>/u', $html, $m);
+        return [$m[1] ?? null, isset($m[2]) && $m[2] !== '', str_contains($html, 'ξανακοιτάξεις'), str_contains($html, 'ειρωνεία')];
+    };
+    $flag = SHOW_DISTORTION_NOTE ? '1' : '0';
+
+    $set(0, 1);
+    assert_same([$flag, !SHOW_DISTORTION_NOTE, SHOW_DISTORTION_NOTE, false], $notes(), 'μόνο διαστρέβλωση');
+    $set(1, 1);
+    assert_same([$flag, false, SHOW_DISTORTION_NOTE, true], $notes(), 'διαστρέβλωση και ειρωνεία');
+    $set(0, 0);
+    assert_same([$flag, true, false, false], $notes(), 'τίποτα');
+
+    preg_match('/id="live-notes" data-distortion="([01])"/', $user->http->get('entry/editor')->body, $m);
+    assert_same($flag, $m[1] ?? null, 'editor');
+});
+
 test('ζωντανή ανάλυση επιστρέφει irony και distortion', function (): void {
     FakeAi::start();
     $user = make_user();

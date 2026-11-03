@@ -5,6 +5,7 @@ $emotionNames = array_values(array_filter(
 ));
 $distortions = array_map(static fn (array $row): string => (string) $row['name'], $entry['distortion_types'] ?? []);
 $analysed = $entry['sentiment_score'] !== null;
+$showDistortion = SHOW_DISTORTION_NOTE && $entry['distortion_detected'];
 ?>
 <a class="back-link" href="<?= e(url('entry/history')) ?>">← Πίσω στο ιστορικό</a>
 
@@ -60,8 +61,8 @@ $analysed = $entry['sentiment_score'] !== null;
                 <?php endforeach; ?>
             </div>
 
-            <ul class="live__notes" id="feel-notes"<?= !$entry['distortion_detected'] && !$entry['irony_detected'] ? ' hidden' : '' ?>>
-                <?php if ($entry['distortion_detected']): ?>
+            <ul class="live__notes" id="feel-notes" data-distortion="<?= SHOW_DISTORTION_NOTE ? '1' : '0' ?>"<?= !$showDistortion && !$entry['irony_detected'] ? ' hidden' : '' ?>>
+                <?php if ($showDistortion): ?>
                     <li><?= $distortions
                         ? 'Μια σκέψη που ίσως αξίζει να ξανακοιτάξεις: ' . e(mb_strtolower(implode(', ', $distortions))) . '.'
                         : 'Ίσως κάποια σκέψη εδώ αξίζει να την ξανακοιτάξεις με λίγη τρυφερότητα.' ?></li>
