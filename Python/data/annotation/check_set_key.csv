@@ -1,0 +1,201 @@
+﻿id;row_id;source;group;stratum;sentiment;emotion;risk;fatigue_keyword
+C001;cssrs-user-32-2-0;cssrs;cssrs-user-32;cssrs;;;Όχι;Όχι
+C002;xed-584;xed;xed-584;αρνητικό xed;;Θυμός;;Όχι
+C003;goemo-edlaazh;goemotions;goemo-edlaazh;αρνητικό;Αρνητικό;Ενοχή;;Όχι
+C004;xed-710;xed;xed-710;αρνητικό xed;;Λύπη;;Όχι
+C005;xed-1485;xed;xed-1485;αρνητικό xed;;Λύπη;;Όχι
+C006;xed-6948;xed;xed-6948;αρνητικό xed;;Φόβος;;Όχι
+C007;goemo-ed9bjy1;goemotions;goemo-ed9bjy1;αρνητικό;Αρνητικό;Θυμός;;Όχι
+C008;goemo-edcle52;goemotions;goemo-edcle52;αρνητικό;Αρνητικό;Φόβος|Άγχος;;Όχι
+C009;goemo-ee0t2ht;goemotions;goemo-ee0t2ht;θετικό;Θετικό;Αγάπη;;Όχι
+C010;goemo-ef2p6rs;goemotions;goemo-ef2p6rs;αρνητικό;Αρνητικό;Φόβος;;Όχι
+C011;sentimp-336;sentimp;sentimp-336;αρνητικό;Αρνητικό;;;Όχι
+C012;sentimp-311;sentimp;sentimp-311;αρνητικό;Αρνητικό;;;Όχι
+C013;sentimp-42;sentimp;sentimp-42;αρνητικό;Αρνητικό;;;Όχι
+C014;goemo-edoxa00;goemotions;goemo-edoxa00;αρνητικό;Αρνητικό;Ντροπή;;Όχι
+C015;sentimp-291;sentimp;sentimp-291;θετικό;Θετικό;;;Όχι
+C016;goemo-efeaelf;goemotions;goemo-efeaelf;αρνητικό;Αρνητικό;Θυμός;;Όχι
+C017;goemo-ee1serq;goemotions;goemo-ee1serq;κούραση;Αρνητικό;Λύπη;;Ναι
+C018;goemo-ed5aeoj;goemotions;goemo-ed5aeoj;αρνητικό;Αρνητικό;Λύπη;;Όχι
+C019;goemo-ed10y07;goemotions;goemo-ed10y07;αρνητικό;Αρνητικό;Ντροπή;;Όχι
+C020;sentimp-380;sentimp;sentimp-380;αρνητικό;Αρνητικό;;;Όχι
+C021;goemo-ed2dwkk;goemotions;goemo-ed2dwkk;ουδέτερο;Ουδέτερο;;;Όχι
+C022;goemo-efbe8un;goemotions;goemo-efbe8un;αρνητικό;Αρνητικό;Λύπη;;Όχι
+C023;sentimp-40;sentimp;sentimp-40;αρνητικό;Αρνητικό;;;Όχι
+C024;goemo-edgei65;goemotions;goemo-edgei65;αρνητικό;Αρνητικό;Λύπη;;Όχι
+C025;goemo-ef1w7sl;goemotions;goemo-ef1w7sl;αρνητικό;Αρνητικό;Λύπη|Ενοχή;;Όχι
+C026;goemo-edtjxgi;goemotions;goemo-edtjxgi;αρνητικό;Αρνητικό;Ενοχή;;Όχι
+C027;xed-6312;xed;xed-6312;αρνητικό xed;;Θυμός;;Όχι
+C028;goemo-edbjz5j;goemotions;goemo-edbjz5j;ουδέτερο;Ουδέτερο;;;Όχι
+C029;cssrs-user-291-9-0;cssrs;cssrs-user-291;κούραση;;;Όχι;Ναι
+C030;goemo-edxzhu4;goemotions;goemo-edxzhu4;ουδέτερο;Ουδέτερο;;;Όχι
+C031;cssrs-user-469-1-0;cssrs;cssrs-user-469;cssrs;;;Όχι;Όχι
+C032;sentimp-408;sentimp;sentimp-408;αρνητικό;Αρνητικό;;;Όχι
+C033;sentimp-1;sentimp;sentimp-1;κούραση;Θετικό;;;Ναι
+C034;cssrs-user-252-2-0;cssrs;cssrs-user-252;cssrs;;;Όχι;Όχι
+C035;xed-3652;xed;xed-3652;αρνητικό xed;;Θυμός;;Όχι
+C036;xed-109;xed;xed-109;αρνητικό xed;;Λύπη;;Όχι
+C037;goemo-ee4tgim;goemotions;goemo-ee4tgim;αρνητικό;Αρνητικό;Ντροπή;;Όχι
+C038;cssrs-user-175-18-1;cssrs;cssrs-user-175;κούραση;;;Όχι;Ναι
+C039;goemo-ed10ppm;goemotions;goemo-ed10ppm;αρνητικό;Αρνητικό;Ενοχή;;Όχι
+C040;goemo-ee8h47p;goemotions;goemo-ee8h47p;αρνητικό;Αρνητικό;Λύπη;;Όχι
+C041;goemo-edjgenn;goemotions;goemo-edjgenn;κούραση;Αρνητικό;Φόβος;;Ναι
+C042;xed-774;xed;xed-774;αρνητικό xed;;Φόβος;;Όχι
+C043;goemo-ed5rwg1;goemotions;goemo-ed5rwg1;αρνητικό;Αρνητικό;Θυμός;;Όχι
+C044;goemo-ee0lvm1;goemotions;goemo-ee0lvm1;αρνητικό;Αρνητικό;Θυμός;;Όχι
+C045;goemo-edahxv0;goemotions;goemo-edahxv0;αρνητικό;Αρνητικό;Θυμός;;Όχι
+C046;goemo-ednvw5n;goemotions;goemo-ednvw5n;ουδέτερο;Ουδέτερο;;;Όχι
+C047;goemo-edemjed;goemotions;goemo-edemjed;θετικό;Θετικό;Αγάπη;;Όχι
+C048;cssrs-user-482-1-2;cssrs;cssrs-user-482;cssrs;;;Όχι;Όχι
+C049;sentimp-420;sentimp;sentimp-420;αρνητικό;Αρνητικό;;;Όχι
+C050;goemo-edjmslj;goemotions;goemo-edjmslj;ουδέτερο;Ουδέτερο;;;Όχι
+C051;xed-4367;xed;xed-4367;αρνητικό xed;;Λύπη;;Όχι
+C052;cssrs-user-418-0-0;cssrs;cssrs-user-418;cssrs;;;Όχι;Όχι
+C053;goemo-edaj4wr;goemotions;goemo-edaj4wr;αρνητικό;Αρνητικό;Ενοχή;;Όχι
+C054;cssrs-user-110-0-24;cssrs;cssrs-user-110;cssrs;;;Όχι;Όχι
+C055;goemo-edbvlh5;goemotions;goemo-edbvlh5;αρνητικό;Αρνητικό;Λύπη;;Όχι
+C056;goemo-edvh5n2;goemotions;goemo-edvh5n2;αρνητικό;Αρνητικό;Ενοχή;;Όχι
+C057;goemo-eejfe3g;goemotions;goemo-eejfe3g;ουδέτερο;Ουδέτερο;;;Όχι
+C058;sentimp-167;sentimp;sentimp-167;αρνητικό;Αρνητικό;;;Όχι
+C059;sentimp-58;sentimp;sentimp-58;κούραση;Θετικό;;;Ναι
+C060;goemo-ed57vmw;goemotions;goemo-ed57vmw;κούραση;Θετικό;Ηρεμία;;Ναι
+C061;goemo-eeo92bu;goemotions;goemo-eeo92bu;ουδέτερο;Ουδέτερο;;;Όχι
+C062;cssrs-user-5-22-0;cssrs;cssrs-user-5;κούραση;;;Όχι;Ναι
+C063;goemo-edv9mqm;goemotions;goemo-edv9mqm;θετικό;Θετικό;Χαρά;;Όχι
+C064;goemo-ee7a8v9;goemotions;goemo-ee7a8v9;αρνητικό;Αρνητικό;Θυμός;;Όχι
+C065;goemo-efew9l1;goemotions;goemo-efew9l1;αρνητικό;Αρνητικό;Λύπη;;Όχι
+C066;goemo-eei4q15;goemotions;goemo-eei4q15;αρνητικό;Αρνητικό;Άγχος;;Όχι
+C067;xed-7051;xed;xed-7051;αρνητικό xed;;Λύπη;;Όχι
+C068;goemo-ef2f0qp;goemotions;goemo-ef2f0qp;αρνητικό;Αρνητικό;Θυμός;;Όχι
+C069;goemo-eezhb5h;goemotions;goemo-eezhb5h;αρνητικό;Αρνητικό;Λύπη;;Όχι
+C070;goemo-efc9012;goemotions;goemo-efc9012;αρνητικό;Αρνητικό;Φόβος;;Όχι
+C071;goemo-edjg21u;goemotions;goemo-edjg21u;ουδέτερο;Ουδέτερο;;;Όχι
+C072;goemo-efh4i9q;goemotions;goemo-efh4i9q;θετικό;Θετικό;Χαρά;;Όχι
+C073;cssrs-user-2-0-1;cssrs;cssrs-user-2;cssrs;;;Όχι;Όχι
+C074;cssrs-user-196-16-1;cssrs;cssrs-user-196;cssrs;;;Ναι;Όχι
+C075;goemo-edh5spn;goemotions;goemo-edh5spn;αρνητικό;Αρνητικό;Ντροπή;;Όχι
+C076;goemo-ef51uzj;goemotions;goemo-ef51uzj;θετικό;Θετικό;Χαρά|Ενθουσιασμός;;Όχι
+C077;cssrs-user-424-0-36;cssrs;cssrs-user-424;cssrs;;;Ναι;Ναι
+C078;cssrs-user-28-8-1;cssrs;cssrs-user-28;κούραση;;;Όχι;Ναι
+C079;sentimp-333;sentimp;sentimp-333;αρνητικό;Αρνητικό;;;Όχι
+C080;goemo-ed3fflw;goemotions;goemo-ed3fflw;θετικό;Θετικό;Αγάπη;;Όχι
+C081;sentimp-218;sentimp;sentimp-218;ουδέτερο;Ουδέτερο;;;Όχι
+C082;goemo-eerybhn;goemotions;goemo-eerybhn;αρνητικό;Αρνητικό;Φόβος;;Όχι
+C083;cssrs-user-126-25-0;cssrs;cssrs-user-126;κούραση;;;Όχι;Ναι
+C084;cssrs-user-364-0-4;cssrs;cssrs-user-364;cssrs;;;Ναι;Όχι
+C085;goemo-ee2zm4w;goemotions;goemo-ee2zm4w;αρνητικό;Αρνητικό;Ενοχή;;Όχι
+C086;cssrs-user-65-10-2;cssrs;cssrs-user-65;cssrs;;;Όχι;Όχι
+C087;cssrs-user-199-0-3;cssrs;cssrs-user-199;κούραση;;;Όχι;Ναι
+C088;goemo-edoht44;goemotions;goemo-edoht44;αρνητικό;Αρνητικό;Άγχος;;Όχι
+C089;goemo-eeyxpv3;goemotions;goemo-eeyxpv3;αρνητικό;Αρνητικό;Θυμός;;Όχι
+C090;goemo-ee3hl5g;goemotions;goemo-ee3hl5g;αρνητικό;Αρνητικό;Ντροπή;;Όχι
+C091;cssrs-user-430-12-1;cssrs;cssrs-user-430;cssrs;;;Όχι;Όχι
+C092;sentimp-104;sentimp;sentimp-104;αρνητικό;Αρνητικό;;;Όχι
+C093;goemo-ed1v0xk;goemotions;goemo-ed1v0xk;αρνητικό;Αρνητικό;Λύπη;;Όχι
+C094;goemo-een6tqj;goemotions;goemo-een6tqj;αρνητικό;Αρνητικό;Θυμός;;Όχι
+C095;goemo-eeqvde4;goemotions;goemo-eeqvde4;αρνητικό;Αρνητικό;Θυμός;;Όχι
+C096;goemo-edp44sl;goemotions;goemo-edp44sl;αρνητικό;Αρνητικό;Λύπη;;Όχι
+C097;goemo-edtpktu;goemotions;goemo-edtpktu;αρνητικό;Αρνητικό;Θυμός;;Όχι
+C098;goemo-eeiqkjv;goemotions;goemo-eeiqkjv;θετικό;Θετικό;Χαρά;;Όχι
+C099;sentimp-100;sentimp;sentimp-100;ουδέτερο;Ουδέτερο;;;Όχι
+C100;xed-6007;xed;xed-6007;αρνητικό xed;;Λύπη;;Όχι
+C101;goemo-ee8d1if;goemotions;goemo-ee8d1if;αρνητικό;Αρνητικό;Φόβος;;Όχι
+C102;goemo-ee5yg0t;goemotions;goemo-ee5yg0t;αρνητικό;Αρνητικό;Ενοχή;;Όχι
+C103;goemo-eebhfg7;goemotions;goemo-eebhfg7;αρνητικό;Αρνητικό;Θυμός;;Όχι
+C104;xed-48;xed;xed-48;αρνητικό xed;;Θυμός|Φόβος;;Όχι
+C105;goemo-eerekx1;goemotions;goemo-eerekx1;αρνητικό;Αρνητικό;Φόβος;;Όχι
+C106;xed-1677;xed;xed-1677;αρνητικό xed;;Λύπη|Θυμός|Φόβος;;Όχι
+C107;goemo-ee8hc91;goemotions;goemo-ee8hc91;ουδέτερο;Ουδέτερο;;;Όχι
+C108;goemo-edyn827;goemotions;goemo-edyn827;θετικό;Θετικό;Ενθουσιασμός;;Όχι
+C109;cssrs-user-134-1-5;cssrs;cssrs-user-134;κούραση;;;Ναι;Ναι
+C110;goemo-ef27sno;goemotions;goemo-ef27sno;αρνητικό;Αρνητικό;Ντροπή;;Όχι
+C111;goemo-eep9bqw;goemotions;goemo-eep9bqw;αρνητικό;Αρνητικό;Φόβος;;Όχι
+C112;cssrs-user-96-37-0;cssrs;cssrs-user-96;cssrs;;;Όχι;Όχι
+C113;sentimp-468;sentimp;sentimp-468;αρνητικό;Αρνητικό;;;Όχι
+C114;goemo-ed8tr4n;goemotions;goemo-ed8tr4n;αρνητικό;Αρνητικό;Φόβος;;Όχι
+C115;goemo-eemqi6x;goemotions;goemo-eemqi6x;αρνητικό;Αρνητικό;Θυμός;;Όχι
+C116;goemo-eev930p;goemotions;goemo-eev930p;ουδέτερο;Ουδέτερο;;;Όχι
+C117;goemo-eczkg1x;goemotions;goemo-eczkg1x;αρνητικό;Αρνητικό;Θυμός;;Όχι
+C118;goemo-eesde8k;goemotions;goemo-eesde8k;αρνητικό;Αρνητικό;Θυμός;;Όχι
+C119;sentimp-74;sentimp;sentimp-74;ουδέτερο;Ουδέτερο;;;Όχι
+C120;sentimp-223;sentimp;sentimp-223;αρνητικό;Αρνητικό;;;Όχι
+C121;goemo-efbfp6i;goemotions;goemo-efbfp6i;αρνητικό;Αρνητικό;Λύπη;;Όχι
+C122;goemo-edpx81n;goemotions;goemo-edpx81n;αρνητικό;Αρνητικό;Φόβος|Έκπληξη;;Όχι
+C123;goemo-eemmmly;goemotions;goemo-eemmmly;αρνητικό;Αρνητικό;Φόβος;;Όχι
+C124;sentimp-398;sentimp;sentimp-398;αρνητικό;Αρνητικό;;;Όχι
+C125;goemo-edijjci;goemotions;goemo-edijjci;κούραση;Θετικό;Αγάπη;;Ναι
+C126;goemo-eegpx4n;goemotions;goemo-eegpx4n;θετικό;Θετικό;Χαρά;;Όχι
+C127;cssrs-user-60-7-0;cssrs;cssrs-user-60;cssrs;;;Όχι;Όχι
+C128;goemo-ef3uc4n;goemotions;goemo-ef3uc4n;αρνητικό;Αρνητικό;Ενοχή;;Όχι
+C129;goemo-ednqu4x;goemotions;goemo-ednqu4x;αρνητικό;Αρνητικό;Φόβος;;Όχι
+C130;goemo-edq7zx4;goemotions;goemo-edq7zx4;αρνητικό;Αρνητικό;Φόβος;;Όχι
+C131;cssrs-user-498-0-2;cssrs;cssrs-user-498;κούραση;;;Όχι;Ναι
+C132;sentimp-313;sentimp;sentimp-313;θετικό;Θετικό;;;Όχι
+C133;cssrs-user-311-10-0;cssrs;cssrs-user-311;κούραση;;;Όχι;Ναι
+C134;cssrs-user-113-0-26;cssrs;cssrs-user-113;κούραση;;;Όχι;Ναι
+C135;goemo-edzxugb;goemotions;goemo-edzxugb;αρνητικό;Αρνητικό;Θυμός;;Όχι
+C136;xed-4179;xed;xed-4179;αρνητικό xed;;Θυμός;;Όχι
+C137;cssrs-user-44-7-0;cssrs;cssrs-user-44;cssrs;;;Όχι;Όχι
+C138;goemo-ednwjac;goemotions;goemo-ednwjac;αρνητικό;Αρνητικό;Λύπη;;Όχι
+C139;goemo-eefbqhc;goemotions;goemo-eefbqhc;θετικό;Θετικό;Ηρεμία;;Όχι
+C140;goemo-eeah41k;goemotions;goemo-eeah41k;αρνητικό;Αρνητικό;Λύπη;;Όχι
+C141;xed-7520;xed;xed-7520;αρνητικό xed;;Λύπη;;Όχι
+C142;goemo-eef37vt;goemotions;goemo-eef37vt;ουδέτερο;Ουδέτερο;;;Όχι
+C143;goemo-ee6ieq7;goemotions;goemo-ee6ieq7;θετικό;Θετικό;Χαρά;;Όχι
+C144;goemo-ef5jr6d;goemotions;goemo-ef5jr6d;αρνητικό;Αρνητικό;Λύπη|Ενοχή;;Όχι
+C145;sentimp-164;sentimp;sentimp-164;θετικό;Θετικό;;;Όχι
+C146;goemo-edqx4j0;goemotions;goemo-edqx4j0;αρνητικό;Αρνητικό;Άγχος;;Όχι
+C147;goemo-eefng6q;goemotions;goemo-eefng6q;αρνητικό;Αρνητικό;Άγχος;;Όχι
+C148;goemo-ed8t0es;goemotions;goemo-ed8t0es;αρνητικό;Αρνητικό;Ενοχή;;Όχι
+C149;goemo-eez0eck;goemotions;goemo-eez0eck;αρνητικό;Αρνητικό;Λύπη|Άγχος;;Όχι
+C150;goemo-efa6rw3;goemotions;goemo-efa6rw3;ουδέτερο;Ουδέτερο;;;Όχι
+C151;goemo-ed5h3jh;goemotions;goemo-ed5h3jh;θετικό;Θετικό;Αγάπη;;Όχι
+C152;goemo-eegho0s;goemotions;goemo-eegho0s;αρνητικό;Αρνητικό;Θυμός;;Όχι
+C153;goemo-efdqjsb;goemotions;goemo-efdqjsb;αρνητικό;Αρνητικό;Φόβος;;Όχι
+C154;goemo-ed7x62x;goemotions;goemo-ed7x62x;αρνητικό;Αρνητικό;Λύπη;;Όχι
+C155;goemo-ee6cghe;goemotions;goemo-ee6cghe;αρνητικό;Αρνητικό;Θυμός;;Όχι
+C156;goemo-ef06dpa;goemotions;goemo-ef06dpa;αρνητικό;Αρνητικό;Άγχος;;Όχι
+C157;goemo-ee2s7o7;goemotions;goemo-ee2s7o7;αρνητικό;Αρνητικό;Φόβος;;Όχι
+C158;goemo-eczot1n;goemotions;goemo-eczot1n;θετικό;Θετικό;Αγάπη;;Όχι
+C159;cssrs-user-206-0-72;cssrs;cssrs-user-206;cssrs;;;Όχι;Όχι
+C160;cssrs-user-302-0-1;cssrs;cssrs-user-302;κούραση;;;Όχι;Ναι
+C161;xed-5545;xed;xed-5545;αρνητικό xed;;Λύπη|Φόβος;;Όχι
+C162;goemo-een5w36;goemotions;goemo-een5w36;αρνητικό;Αρνητικό;Ενοχή;;Όχι
+C163;cssrs-user-223-7-0;cssrs;cssrs-user-223;cssrs;;;Όχι;Όχι
+C164;goemo-ee5a1h5;goemotions;goemo-ee5a1h5;αρνητικό;Αρνητικό;Ενοχή;;Όχι
+C165;goemo-eezgcul;goemotions;goemo-eezgcul;ουδέτερο;Ουδέτερο;;;Όχι
+C166;sentimp-238;sentimp;sentimp-238;θετικό;Θετικό;;;Όχι
+C167;cssrs-user-203-0-77;cssrs;cssrs-user-203;cssrs;;;Όχι;Όχι
+C168;goemo-edxyq9n;goemotions;goemo-edxyq9n;θετικό;Θετικό;Ενθουσιασμός;;Όχι
+C169;goemo-eec4yxi;goemotions;goemo-eec4yxi;αρνητικό;Αρνητικό;Φόβος;;Όχι
+C170;xed-8008;xed;xed-8008;αρνητικό xed;;Φόβος;;Όχι
+C171;cssrs-user-225-0-0;cssrs;cssrs-user-225;cssrs;;;Όχι;Όχι
+C172;goemo-ef1vayk;goemotions;goemo-ef1vayk;αρνητικό;Αρνητικό;Φόβος;;Όχι
+C173;goemo-edcnsgk;goemotions;goemo-edcnsgk;θετικό;Θετικό;Αγάπη;;Όχι
+C174;goemo-eed5me2;goemotions;goemo-eed5me2;θετικό;Θετικό;Αγάπη;;Όχι
+C175;goemo-ee9ij1d;goemotions;goemo-ee9ij1d;αρνητικό;Αρνητικό;Λύπη;;Όχι
+C176;goemo-ee9aj79;goemotions;goemo-ee9aj79;αρνητικό;Αρνητικό;Λύπη;;Όχι
+C177;cssrs-user-121-6-0;cssrs;cssrs-user-121;κούραση;;;Όχι;Ναι
+C178;goemo-edmicyd;goemotions;goemo-edmicyd;ουδέτερο;Ουδέτερο;;;Όχι
+C179;goemo-edivtm3;goemotions;goemo-edivtm3;αρνητικό;Αρνητικό;Θυμός|Ντροπή;;Όχι
+C180;goemo-ee5xx4i;goemotions;goemo-ee5xx4i;αρνητικό;Αρνητικό;Άγχος;;Όχι
+C181;xed-6412;xed;xed-6412;αρνητικό xed;;Φόβος;;Όχι
+C182;xed-5429;xed;xed-5429;αρνητικό xed;;Θυμός;;Όχι
+C183;goemo-een6y2q;goemotions;goemo-een6y2q;αρνητικό;Αρνητικό;Φόβος;;Όχι
+C184;sentimp-449;sentimp;sentimp-449;αρνητικό;Αρνητικό;;;Όχι
+C185;cssrs-user-278-3-0;cssrs;cssrs-user-278;κούραση;;;Ναι;Ναι
+C186;goemo-ef2h3we;goemotions;goemo-ef2h3we;αρνητικό;Αρνητικό;Θυμός;;Όχι
+C187;goemo-eejbtfp;goemotions;goemo-eejbtfp;ουδέτερο;Ουδέτερο;;;Όχι
+C188;goemo-eebth03;goemotions;goemo-eebth03;αρνητικό;Αρνητικό;Θυμός;;Όχι
+C189;cssrs-user-140-2-0;cssrs;cssrs-user-140;cssrs;;;Όχι;Όχι
+C190;goemo-eech0ur;goemotions;goemo-eech0ur;αρνητικό;Αρνητικό;Φόβος;;Όχι
+C191;goemo-ee0k0p5;goemotions;goemo-ee0k0p5;αρνητικό;Αρνητικό;Ντροπή;;Όχι
+C192;goemo-efe6ilq;goemotions;goemo-efe6ilq;ουδέτερο;Ουδέτερο;;;Όχι
+C193;goemo-eeglekz;goemotions;goemo-eeglekz;ουδέτερο;Ουδέτερο;;;Όχι
+C194;goemo-edjhfz7;goemotions;goemo-edjhfz7;αρνητικό;Αρνητικό;Λύπη;;Όχι
+C195;cssrs-user-125-0-36;cssrs;cssrs-user-125;κούραση;;;Όχι;Ναι
+C196;xed-3164;xed;xed-3164;αρνητικό xed;;Θυμός;;Όχι
+C197;goemo-ee50y8v;goemotions;goemo-ee50y8v;αρνητικό;Αρνητικό;Λύπη;;Όχι
+C198;goemo-ee796d8;goemotions;goemo-ee796d8;αρνητικό;Αρνητικό;Θυμός;;Όχι
+C199;goemo-ed0i4fk;goemotions;goemo-ed0i4fk;αρνητικό;Αρνητικό;Ενοχή;;Όχι
+C200;goemo-eeo9sv9;goemotions;goemo-eeo9sv9;αρνητικό;Αρνητικό;Φόβος;;Όχι
