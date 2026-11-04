@@ -71,7 +71,7 @@
 | Βάση         | MariaDB 10.4+ (XAMPP)                                             |
 | AI service   | Python 3.11, FastAPI, Uvicorn                                     |
 | Μοντέλο      | PyTorch, Transformers, `nlpaueb/bert-base-greek-uncased-v1`       |
-| NER          | spaCy, `el_core_news_sm`                                          |
+| NER          | spaCy, `el_core_news_md`                                          |
 | Προαιρετικά  | OpenAI (επαλήθευση αποτελεσμάτων), Gemini (μετάφραση datasets)    |
 
 ---
@@ -142,7 +142,7 @@ MIGRATE_DB_USER=root MIGRATE_DB_PASS= php database/migrate.php --status   # δε
 cd Python
 python3.11 -m venv .venv
 .venv/bin/pip install -r requirements.txt
-.venv/bin/pip install https://github.com/explosion/spacy-models/releases/download/el_core_news_sm-3.7.0/el_core_news_sm-3.7.0-py3-none-any.whl
+.venv/bin/pip install https://github.com/explosion/spacy-models/releases/download/el_core_news_md-3.7.0/el_core_news_md-3.7.0-py3-none-any.whl
 .venv/bin/python main.py
 ```
 

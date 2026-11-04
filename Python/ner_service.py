@@ -1,7 +1,7 @@
 import os 
 
 _NLP = None
-NER_MODEL = os.getenv("NER_MODEL", "el_core_news_sm")
+NER_MODEL = os.getenv("NER_MODEL", "el_core_news_md")
 NER_LEMMATIZER = os.getenv("NER_LEMMATIZE", "1") != "0"
 
 

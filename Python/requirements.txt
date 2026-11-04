@@ -10,4 +10,4 @@ python-dotenv==1.0.1
 spacy==3.7.5
 
 #Για spaCy για εγκατάσταση του ελληνικού μοντέλου, θα χρειαστεί να τρέξετε την παρακάτω εντολή μετά την εγκατάσταση των απαιτήσεων:
-#https://github.com/explosion/spacy-models/releases/download/el_core_news_sm-3.7.0/el_core_news_sm-3.7.0-py3-none-any.whl
+#https://github.com/explosion/spacy-models/releases/download/el_core_news_md-3.7.0/el_core_news_md-3.7.0-py3-none-any.whl
