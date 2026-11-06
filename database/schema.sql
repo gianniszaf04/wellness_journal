@@ -275,6 +275,17 @@ CONSTRAINT check_saw_by_user CHECK (saw_by_user IN (0,1))
 
 CREATE INDEX IF NOT EXISTS idx_insights_user ON  insights(user_id,saw_by_user,priority);
 
+CREATE TABLE IF NOT EXISTS user_words (
+id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+user_id BIGINT UNSIGNED NOT NULL,
+word VARCHAR(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+UNIQUE KEY unique_user_word (user_id, word),
+CONSTRAINT check_user_word_not_empty CHECK (CHAR_LENGTH(TRIM(word)) > 0),
+CONSTRAINT fk_user_words_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- ποια migrations εχουν τρεξει (database/migrate.php)
 CREATE TABLE IF NOT EXISTS schema_migrations (
 migration VARCHAR(255) PRIMARY KEY,
@@ -288,7 +299,9 @@ INSERT IGNORE INTO schema_migrations (migration) VALUES
 ('003_add_entry_emotions_distortions.sql'),
 ('004_add_shame_guilt_emotions.sql'),
 ('005_add_email_verification.sql'),
-('006_generalize_verification_codes.sql');
+('006_generalize_verification_codes.sql'),
+('007_add_irony_distortion_detected.sql'),
+('008_add_user_words.sql');
 
 
 

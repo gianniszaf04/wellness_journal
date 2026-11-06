@@ -63,6 +63,8 @@ $router->group(['middleware' => [RequireLogin::class, VerifyCsrf::class]], funct
     $router->get('/api/entries/{id}',        [ApiEntryController::class,  'show'],            'api.entries.show');
     $router->middleware([RateLimitEntries::class])->patch('/api/entries/{id}', [ApiEntryController::class, 'update'], 'api.entries.update');
     $router->delete('/api/entries/{id}',     [ApiEntryController::class,'destroy'],           'api.entries.destroy');
+    $router->middleware([RateLimitEntries::class])->post('/api/entries/{id}/spelling', [ApiEntryController::class, 'applySpelling'], 'api.entries.spelling');
+    $router->post('/api/words',               [ApiEntryController::class,  'keepWord'],        'api.words.store');
     $router->middleware([RateLimitLive::class])->post('/api/sentiment/live', [ApiSentimentController::class,'analyzeLive'],  'api.sentiment.live');
     $router->get('/api/analytics/mood-trends',[ApiAnalyticsController::class,'getMoodTrends'],'api.analytics.trends');
     $router->get('/api/analytics/emotions',   [ApiAnalyticsController::class,'getEmotionDistribution'],'api.analytics.emotions');

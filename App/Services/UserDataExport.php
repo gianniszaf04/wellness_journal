@@ -6,6 +6,7 @@ use App\Models\EmotionEntityRelation;
 use App\Models\EntryLabel;
 use App\Models\Insight;
 use App\Models\UserProfile;
+use App\Models\UserWord;
 use Database;
 use PDO;
 
@@ -45,6 +46,7 @@ class UserDataExport
                 FROM daily_messages dm JOIN motivational_messages mm ON mm.id = dm.message_id
                 WHERE dm.user_id = :user_id ORDER BY dm.summary_date, dm.id', $userId),
             'entity_relations' => (new EmotionEntityRelation())->allForUser($userId),
+            'words' => (new UserWord())->allForUser($userId),
         ];
     }
 

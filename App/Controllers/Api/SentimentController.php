@@ -4,6 +4,7 @@ namespace App\Controllers\Api;
 
 use App\Core\Request;
 use App\Models\Emotion;
+use App\Models\UserWord;
 use App\Services\AiClient;
 use App\Services\CrisisSupport;
 
@@ -28,7 +29,7 @@ class SentimentController
         }
 
         try {
-            $aiData = (new AiClient())->analyze($text);
+            $aiData = (new AiClient())->analyze($text, (new UserWord())->allForUser((int) current_user_id()));
         } catch (\Exception $e) {
             error_log('Live sentiment error: ' . $e->getMessage());
             $aiData = null;

@@ -31,6 +31,8 @@ $showDistortion = SHOW_DISTORTION_NOTE && $entry['distortion_detected'];
 
         <p class="page__error" id="form-error" role="alert" hidden></p>
 
+        <?php partial('spelling'); ?>
+
         <div class="page__foot">
             <span class="page__count muted" id="edit-status" aria-live="polite"></span>
             <div class="page__actions" id="read-actions">

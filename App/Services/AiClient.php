@@ -2,9 +2,54 @@
 declare(strict_types=1);
 namespace App\Services;
 
+use App\Models\UserWord;
+
 class AiClient
 {
-    public function analyze(string $text): ?array
+    public const MAX_SPELLING_WORDS = 5;
+    public const MAX_SUGGESTIONS = 3;
+
+    public static function payload(string $text, array $knownWords = []): array
+    {
+        $knownWords = array_values(array_filter($knownWords, static fn (mixed $word): bool => is_string($word) && $word !== ''));
+        return $knownWords === [] ? ['text' => $text] : ['text' => $text, 'known_words' => $knownWords];
+    }
+
+    public static function spelling(array $aiData, string $text, array $knownWords = []): array
+    {
+        $known = array_map('mb_strtolower', array_filter($knownWords, 'is_string'));
+        $length = mb_strlen($text);
+        $spelling = [];
+
+        foreach (is_array($aiData['spelling'] ?? null) ? $aiData['spelling'] : [] as $item) {
+            if (count($spelling) === self::MAX_SPELLING_WORDS) {
+                break;
+            }
+            $word = $item['word'] ?? null;
+            $start = $item['start'] ?? null;
+            $end = $item['end'] ?? null;
+            if (!is_string($word) || $word === '' || !is_int($start) || !is_int($end)
+                || $start < 0 || $end <= $start || $end > $length
+                || mb_substr($text, $start, $end - $start) !== $word
+                || in_array(mb_strtolower($word), $known, true)) {
+                continue;
+            }
+
+            $suggestions = array_slice(array_values(array_unique(array_filter(
+                self::labels($item['suggestions'] ?? null),
+                static fn (string $suggestion): bool => $suggestion !== $word && UserWord::isValid($suggestion)
+            ))), 0, self::MAX_SUGGESTIONS);
+            if ($suggestions === []) {
+                continue;
+            }
+
+            $spelling[] = ['word' => $word, 'start' => $start, 'end' => $end, 'suggestions' => $suggestions];
+        }
+
+        return $spelling;
+    }
+
+    public function analyze(string $text, array $knownWords = []): ?array
     {
         $aiUrl = (string) getenv('AI_SERVICE_URL') ?: 'http://127.0.0.1:8000/analyze';
         $timeout = (int) getenv('AI_SERVICE_TIMEOUT') ?: 4;
@@ -18,7 +63,7 @@ class AiClient
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_POST, true);
         curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode(['text' => $text], JSON_UNESCAPED_UNICODE));
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode(self::payload($text, $knownWords), JSON_UNESCAPED_UNICODE));
         curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
 
         $response = curl_exec($ch);

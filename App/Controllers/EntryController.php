@@ -22,7 +22,7 @@ class EntryController
 
         view('entry/editor', [
             'title'      => 'Νέα σελίδα',
-            'scripts'    => ['api.js', 'editor.js', 'sound.js'],
+            'scripts'    => ['api.js', 'spelling.js', 'editor.js', 'sound.js'],
             'sound'      => in_array($sound, UserProfile::VALID_SOUNDS, true) ? $sound : UserProfile::DEFAULT_SOUND,
             'today'      => $today,
             'todayLabel' => greek_date($today),
@@ -88,7 +88,7 @@ class EntryController
 
         view('entry/show', [
             'title'   => greek_date((string) $entry['entry_date']),
-            'scripts' => ['api.js', 'entry.js'],
+            'scripts' => ['api.js', 'spelling.js', 'entry.js'],
             'entry'   => $entry,
             'mood'    => mood_level($entry['sentiment_score']),
         ]);

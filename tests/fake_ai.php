@@ -3,14 +3,16 @@ declare(strict_types=1);
 
 // Ψευτικο AI service για τα tests: php -S 127.0.0.1:8000 tests/fake_ai.php (το ξεκιναει το run.php).
 // Η απαντηση βγαινει απο το κειμενο: "SCORE=-0.8 EMO=Λύπη EMOS=Λύπη,Άγχος ENT=Μαρία,Νίκος IRONY=0.8 DIST=0.3
-// TYPES=Καταστροφολογία RISK=0.6". BADPROB -> irony/distortion/risk με μη αριθμητικη πιθανοτητα.
+// TYPES=Καταστροφολογία RISK=0.6 SPELL=πεπατημα>περπάτημα|πατήματα". BADPROB -> irony/distortion/risk με μη αριθμητικη πιθανοτητα.
 // Προεπιλογη: εκπαιδευμενο μοντελο σε ολα τα tasks. UNTRAINED -> model_trained=false,
 // TRAINED=sentiment,emotion -> εκπαιδευμενα μονο αυτα.
 
 ini_set('serialize_precision', '-1');
 header('Content-Type: application/json; charset=utf-8');
 
-$text = (string) (json_decode((string) file_get_contents('php://input'), true)['text'] ?? '');
+$input = json_decode((string) file_get_contents('php://input'), true);
+$text = (string) ($input['text'] ?? '');
+$knownWords = array_map('mb_strtolower', is_array($input['known_words'] ?? null) ? $input['known_words'] : []);
 
 if (mb_strlen($text) > 10000) {
     http_response_code(422);
@@ -46,8 +48,20 @@ if (isset($analysis['distortion'])) {
     ));
 }
 
+$spelling = [];
+foreach ($list('SPELL') as $item) {
+    [$word, $suggestions] = array_pad(explode('>', $item, 2), 2, '');
+    if (in_array(mb_strtolower($word), $knownWords, true)
+        || preg_match('/(?<![\p{L}=,])' . preg_quote($word, '/') . '(?![\p{L}>])/u', $text, $m, PREG_OFFSET_CAPTURE) !== 1) {
+        continue;
+    }
+    $start = mb_strlen(substr($text, 0, $m[0][1]));
+    $spelling[] = ['word' => $word, 'start' => $start, 'end' => $start + mb_strlen($word), 'suggestions' => explode('|', $suggestions)];
+}
+
 echo json_encode([
     'success' => true,
+    'spelling' => $spelling,
     'sentiment_score' => (float) ($find('SCORE', '-?[\d.]+') ?? 0),
     'dominant_emotion' => $emotion,
     'emotions' => $list('EMOS'),
