@@ -6,8 +6,9 @@ use App\Models\UserWord;
 
 class AiClient
 {
-    public const MAX_SPELLING_WORDS = 5;
+    public const MAX_SPELLING_WORDS = 50;
     public const MAX_SUGGESTIONS = 3;
+    private const SPELLING_TIMEOUT_MS = 1000;
 
     public static function payload(string $text, array $knownWords = []): array
     {
@@ -49,12 +50,36 @@ class AiClient
         return $spelling;
     }
 
+    public static function serviceUrl(string $endpoint): string
+    {
+        $url = (string) getenv('AI_SERVICE_URL') ?: 'http://127.0.0.1:8000/analyze';
+        if ($endpoint === 'analyze') {
+            return $url;
+        }
+        $parts = parse_url($url);
+        $path = rtrim(str_replace('\\', '/', dirname((string) ($parts['path'] ?? '/'))), '/');
+        return ($parts['scheme'] ?? 'http') . '://' . ($parts['host'] ?? '127.0.0.1')
+            . (isset($parts['port']) ? ':' . $parts['port'] : '') . $path . '/' . $endpoint;
+    }
+
     public function analyze(string $text, array $knownWords = []): ?array
     {
-        $aiUrl = (string) getenv('AI_SERVICE_URL') ?: 'http://127.0.0.1:8000/analyze';
         $timeout = (int) getenv('AI_SERVICE_TIMEOUT') ?: 4;
+        $aiData = $this->post(self::serviceUrl('analyze'), self::payload($text, $knownWords), $timeout * 1000);
 
-        $ch = curl_init($aiUrl);
+        return $aiData === null ? null : self::withoutUntrained($aiData);
+    }
+
+    public function checkSpelling(string $text, array $knownWords = []): ?array
+    {
+        $aiData = $this->post(self::serviceUrl('spelling'), self::payload($text, $knownWords), self::SPELLING_TIMEOUT_MS);
+
+        return $aiData === null ? null : self::spelling($aiData, $text, $knownWords);
+    }
+
+    private function post(string $url, array $payload, int $timeoutMs): ?array
+    {
+        $ch = curl_init($url);
 
         if ($ch === false) {
             throw new \Exception('Failed to initialize cURL');
@@ -63,8 +88,8 @@ class AiClient
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_POST, true);
         curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode(self::payload($text, $knownWords), JSON_UNESCAPED_UNICODE));
-        curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload, JSON_UNESCAPED_UNICODE));
+        curl_setopt($ch, CURLOPT_TIMEOUT_MS, $timeoutMs);
 
         $response = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -88,7 +113,7 @@ class AiClient
             return null;
         }
 
-        return self::withoutUntrained($aiData);
+        return $aiData;
     }
 
     // AI_ALLOW_UNTRAINED=1: κραταμε και τα ανεκπαιδευτα αποτελεσματα (μονο για δοκιμες της ροης)

@@ -49,7 +49,7 @@ class EntryController
             json_response(['success' => false, 'error' => 'Αποτυχία δημιουργίας καταγραφής.'], 500);
         }
 
-        [$sentimentScore, $dominantEmotionId, $emotionConfidence, $aiAvailable, $riskProbability, $spelling] =
+        [$sentimentScore, $dominantEmotionId, $emotionConfidence, $aiAvailable, $riskProbability] =
             $this->analyzeAndPersist($id, $userId, $body, $entryDate, false);
         $support = CrisisSupport::forEntry($body, $riskProbability, $sentimentScore, $this->warningThreshold());
 
@@ -103,7 +103,6 @@ class EntryController
             'message' => $calmMessage,
             'support' => $support,
             'ai_available' => $aiAvailable,
-            'spelling' => $spelling,
         ], 201);
     }
 
@@ -121,7 +120,7 @@ class EntryController
     /**
      * Καλει το AI service και κανει persist: sentiment/emotion στην εγγραφη,
      * (επανα)δημιουργια entities, emotions/distortion types, relations και daily summary.
-     * Επιστρεφει [?float sentimentScore, ?int dominantEmotionId, ?float emotionConfidence, bool aiAvailable, ?float riskProbability, array spelling].
+     * Επιστρεφει [?float sentimentScore, ?int dominantEmotionId, ?float emotionConfidence, bool aiAvailable, ?float riskProbability].
      *
      * @param bool $replaceEntities Σε edit (true): σβηνει & ξαναγραφει τα entities.
      */
@@ -139,11 +138,9 @@ class EntryController
         $riskProbability = null;
         $emotions = [];
         $distortionTypes = [];
-        $spelling = [];
-        $knownWords = (new UserWord())->allForUser($userId);
 
         try {
-            $aiData = (new AiClient())->analyze($body, $knownWords);
+            $aiData = (new AiClient())->analyze($body, (new UserWord())->allForUser($userId));
 
             if ($aiData !== null) {
                 // score 0 ειναι εγκυρο ουδετερο -> το διακρινουμε απο "λειπει το πεδιο"
@@ -171,7 +168,6 @@ class EntryController
                     $aiData['analysis']['distortion']['types'] ?? null,
                     $aiData['analysis']['distortion']['type_probabilities'] ?? null
                 );
-                $spelling = AiClient::spelling($aiData, $body, $knownWords);
             }
         } catch (\Exception $e) {
             error_log('AI Service Error: ' . $e->getMessage());
@@ -251,7 +247,7 @@ class EntryController
             error_log('Daily summary recalculation error: ' . $e->getMessage());
         }
 
-        return [$sentimentScore, $dominantEmotionId, $emotionConfidence, $aiData !== null, $riskProbability, $spelling];
+        return [$sentimentScore, $dominantEmotionId, $emotionConfidence, $aiData !== null, $riskProbability];
     }
 
     private function warningThreshold(): float
@@ -327,68 +323,18 @@ class EntryController
         $body = trim((string) $request->input('body', ''));
         $this->validateBody($body);
 
-        $this->saveAndAnalyze($entryId, $userId, $existing, $body);
-    }
-
-    public function applySpelling(string $id): void
-    {
-        $userId = (int) current_user_id();
-        $entryId = (int) $id;
-        $request = new Request();
-
-        $existing = $this->entryModel->findByIdForUser($entryId, $userId);
-        if ($existing === null) {
-            json_response(['success' => false, 'error' => 'Η καταγραφή δεν βρέθηκε.'], 404);
-        }
-
-        $word = $request->input('word');
-        $replacement = $request->input('replacement');
-        $start = filter_var($request->input('start'), FILTER_VALIDATE_INT, ['options' => ['min_range' => 0]]);
-        $end = filter_var($request->input('end'), FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
-        if (!is_string($word) || !is_string($replacement) || !UserWord::isValidSuggestion($replacement)
-            || $start === false || $end === false || $end <= $start) {
-            json_response(['success' => false, 'error' => 'Μη έγκυρη διόρθωση.'], 422);
-        }
-
-        $current = (string) $existing['body'];
-        if ($word === '' || mb_substr($current, $start, $end - $start) !== $word) {
-            json_response(['success' => false, 'error' => 'Η λέξη έχει ήδη αλλάξει στη σελίδα.'], 409);
-        }
-
-        $body = mb_substr($current, 0, $start) . $replacement . mb_substr($current, $end);
-        $this->validateBody($body);
-
-        $this->saveAndAnalyze($entryId, $userId, $existing, $body);
-    }
-
-    private function saveAndAnalyze(int $entryId, int $userId, array $existing, string $body): void
-    {
         release_session();
 
         $this->entryModel->update($entryId, $userId, $body);
 
         // Ξανατρεχουμε AI ωστε sentiment/emotion/entities/summary να μην μεινουν stale απο το παλιο κειμενο
         $entryDate = (string) ($existing['entry_date'] ?? date('Y-m-d'));
-        [$sentimentScore, , , $aiAvailable, $riskProbability, $spelling] = $this->analyzeAndPersist($entryId, $userId, $body, $entryDate, true);
+        [$sentimentScore, , , $aiAvailable, $riskProbability] = $this->analyzeAndPersist($entryId, $userId, $body, $entryDate, true);
         $support = CrisisSupport::forEntry($body, $riskProbability, $sentimentScore, $this->warningThreshold());
 
         $entry = $this->entryModel->findByIdForUser($entryId, $userId);
 
-        json_response(['success' => true, 'data' => $entry, 'support' => $support, 'ai_available' => $aiAvailable, 'spelling' => $spelling]);
-    }
-
-    public function keepWord(): void
-    {
-        $word = (new Request())->input('word');
-        if (!is_string($word) || !UserWord::isValid($word)) {
-            json_response(['success' => false, 'error' => 'Μη έγκυρη λέξη.'], 422);
-        }
-
-        if (!(new UserWord())->add((int) current_user_id(), $word)) {
-            json_response(['success' => false, 'error' => 'Η λέξη δεν αποθηκεύτηκε.'], 500);
-        }
-
-        json_response(['success' => true, 'data' => ['word' => $word]], 201);
+        json_response(['success' => true, 'data' => $entry, 'support' => $support, 'ai_available' => $aiAvailable]);
     }
 
     public function destroy(string $id): void

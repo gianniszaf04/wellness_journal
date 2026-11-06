@@ -1338,60 +1338,32 @@
     text-transform: uppercase;
 }
 
-.spelling {
-    display: grid;
-    gap: 10px;
-    justify-items: start;
-    margin: 18px 0;
-    padding: 18px 20px;
-    border-radius: 16px;
-    background: color-mix(in srgb, var(--sky) 18%, var(--card));
-    text-align: left;
-}
 
-.spelling[hidden] { display: none; }
-
-.spelling__title { margin: 0; font-size: 1.25rem; }
-
-.spelling__text,
-.spelling__status { margin: 0; font-size: .95rem; }
-
-.spelling__status:empty { display: none; }
-
-.spelling__list {
-    display: grid;
-    gap: 10px;
-    width: 100%;
-    margin: 0;
-    padding: 0;
-    list-style: none;
-}
-
-.spelling__item {
+.suggest {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 8px 12px;
-}
-
-.spelling__word {
-    font-style: italic;
-    text-decoration: underline dotted var(--muted);
-    text-underline-offset: 4px;
-}
-
-.spelling__choices {
-    display: flex;
-    flex-wrap: wrap;
     gap: 6px;
+    min-height: 34px;
+    margin-top: -8px;
+    padding: 0 8px 0 48px;
+    visibility: hidden;
 }
 
-.spelling__choice,
-.spelling__keep {
-    padding: 4px 14px;
+.suggest.is-open { visibility: visible; }
+
+.suggest__word {
+    margin-right: 2px;
+    color: var(--muted);
+    font-style: italic;
+}
+
+.suggest__choice,
+.suggest__keep {
+    padding: 3px 14px;
     border: 1.5px solid var(--line);
     border-radius: 999px;
-    background: var(--card);
+    background: color-mix(in srgb, var(--sky) 14%, var(--card));
     color: var(--text);
     font: inherit;
     font-size: .95rem;
@@ -1399,9 +1371,11 @@
     transition: background .15s, border-color .15s;
 }
 
-.spelling__choice:hover,
-.spelling__keep:hover { background: var(--soft); border-color: var(--sky); }
+.suggest__choice:hover,
+.suggest__keep:hover { background: var(--soft); border-color: var(--sky); }
 
-.spelling__keep { color: var(--muted); }
+.suggest__keep { color: var(--muted); }
 
-.spelling button:disabled { opacity: .6; cursor: progress; }
+@media (max-width: 560px) {
+    .suggest { padding-left: 40px; }
+}

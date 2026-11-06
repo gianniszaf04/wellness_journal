@@ -20,6 +20,7 @@
 
         <label class="visually-hidden" for="entry-body">Η σελίδα σου</label>
         <textarea class="page__text" id="entry-body" name="body" maxlength="<?= (int) $maxLength ?>" placeholder="Γράψε ελεύθερα, όπως θα έγραφες σε ένα τετράδιο..." required></textarea>
+        <?php partial('spelling', ['for' => 'entry-body']); ?>
 
         <div class="page__foot">
             <span class="page__count" id="char-count">0 / <?= number_format($maxLength, 0, ',', '.') ?></span>
@@ -93,7 +94,6 @@
     <h2 class="saved__title" id="saved-title">Η σελίδα σου αποθηκεύτηκε</h2>
     <p class="saved__summary muted" id="saved-summary"></p>
     <p class="saved__message" id="saved-message" hidden></p>
-    <?php partial('spelling'); ?>
     <div class="saved__actions">
         <a class="btn" id="saved-view" href="<?= e(url('entry/history')) ?>">Δες τη σελίδα</a>
         <button class="btn btn--quiet" type="button" id="saved-again">Γράψε κι άλλη</button>

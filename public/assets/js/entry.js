@@ -71,17 +71,8 @@
         if (empty) empty.hidden = level !== 0;
     }
 
-    function showSaved(data) {
-        const entry = data.data;
-        text.textContent = entry.body;
-        textarea.value = entry.body;
-        renderFeel(entry);
-        window.support.render(data.support || null);
-    }
-
     $('edit-btn').addEventListener('click', () => {
         status.textContent = '';
-        window.spelling.render(null, []);
         setEditing(true);
     });
 
@@ -121,9 +112,12 @@
             return;
         }
 
-        showSaved(result.data);
+        const entry = result.data.data;
+        text.textContent = entry.body;
+        textarea.value = entry.body;
+        renderFeel(entry);
+        window.support.render(result.data.support || null);
         setEditing(false);
-        window.spelling.render(id, result.data.spelling, showSaved);
         status.textContent = result.data.ai_available === false
             ? 'Οι αλλαγές αποθηκεύτηκαν, χωρίς νέα ανάλυση προς το παρόν.'
             : 'Οι αλλαγές αποθηκεύτηκαν και η ανάλυση ενημερώθηκε.';

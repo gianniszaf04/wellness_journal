@@ -27,11 +27,10 @@ $showDistortion = SHOW_DISTORTION_NOTE && $entry['distortion_detected'];
         <form class="page__edit" id="edit-form" hidden>
             <label class="visually-hidden" for="edit-body">Επεξεργασία σελίδας</label>
             <textarea class="page__text" id="edit-body" maxlength="10000"><?= e((string) $entry['body']) ?></textarea>
+            <?php partial('spelling', ['for' => 'edit-body']); ?>
         </form>
 
         <p class="page__error" id="form-error" role="alert" hidden></p>
-
-        <?php partial('spelling'); ?>
 
         <div class="page__foot">
             <span class="page__count muted" id="edit-status" aria-live="polite"></span>

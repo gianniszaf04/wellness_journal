@@ -23,62 +23,61 @@ test('AiClient::spelling κρατά μόνο λέξεις που υπάρχου�
     assert_same([], $spelling([$item('πεπατημα', 4, 12, ['πεπατημα', 'τρεις λέξεις εδώ', 'δύο  κενά', ' αρχή', 'τέλος ', '<b>'])]), 'καμία έγκυρη πρόταση');
     assert_same([$item('πεπατημα', 4, 12, ['πήγα σπίτι'])], $spelling([$item('πεπατημα', 4, 12, ['πήγα σπίτι'])]), 'δύο λέξεις με ένα κενό');
     assert_same([$item('πεπατημα', 4, 12, ['α', 'β', 'γ'])], $spelling([$item('πεπατημα', 4, 12, ['α', 'β', 'α', 'γ', 'δ'])]), 'έως 3 χωρίς διπλές');
-    assert_same(5, count($spelling(array_fill(0, 7, $item('πεπατημα', 4, 12)))), 'έως 5 λέξεις');
+    assert_same(50, count($spelling(array_fill(0, 60, $item('πεπατημα', 4, 12)))), 'έως 50 λέξεις');
     assert_same([], AiClient::spelling([], $text), 'χωρίς πεδίο spelling');
     assert_same([], AiClient::spelling(['spelling' => 'όχι λίστα'], $text), 'όχι λίστα');
 });
 
-test('ορθογραφικά: πρόταση μετά την αποθήκευση και αλλαγή μόνο με κλικ', function (): void {
-    FakeAi::start();
-    $user = make_user();
-    $stored = $user->http->api('POST', 'api/entries', ['body' => 'Σήμερα πεπατημα στη θάλασσα. SCORE=0.5 SPELL=πεπατημα>περπάτημα|πατήματα']);
-    assert_same(201, $stored->status);
-    $id = $stored->json()['data']['id'];
-    $item = ['word' => 'πεπατημα', 'start' => 7, 'end' => 15, 'suggestions' => ['περπάτημα', 'πατήματα']];
-    assert_same([$item], $stored->json()['spelling'], 'store');
-    assert_same(true, str_contains($user->http->api('GET', "api/entries/{$id}")->json()['data']['body'], 'Σήμερα πεπατημα'), 'το κείμενο δεν άλλαξε μόνο του');
-
-    $fix = fn (array $data): Response => $user->http->api('POST', "api/entries/{$id}/spelling", $data);
-    $base = ['word' => 'πεπατημα', 'start' => 7, 'end' => 15];
-
-    assert_same(409, $fix(['start' => 8, 'end' => 16] + $base + ['replacement' => 'περπάτημα'])->status, 'άλλες θέσεις');
-    assert_same(422, $fix($base + ['replacement' => '<b>x</b>'])->status, 'άκυρη αντικατάσταση');
-    assert_same(422, $fix($base + ['replacement' => 'τρεις λέξεις εδώ'])->status, 'τρεις λέξεις');
-    assert_same(422, $fix(['start' => 15, 'end' => 7] + $base + ['replacement' => 'περπάτημα'])->status, 'ανάποδες θέσεις');
-    assert_same(404, make_user()->http->api('POST', "api/entries/{$id}/spelling", $base + ['replacement' => 'περπάτημα'])->status, 'άλλου χρήστη');
-
-    $fixed = $fix($base + ['replacement' => 'περπάτημα']);
-    assert_same(200, $fixed->status);
-    $data = $fixed->json();
-    assert_same('Σήμερα περπάτημα στη θάλασσα. SCORE=0.5 SPELL=πεπατημα>περπάτημα|πατήματα', $data['data']['body']);
-    assert_same('0.5000', $data['data']['sentiment_score'], 'ξανατρέχει η ανάλυση');
-    assert_same([], $data['spelling'], 'η λέξη διορθώθηκε');
-    assert_same(409, $fix($base + ['replacement' => 'πατήματα'])->status, 'δεύτερη φορά στην ίδια θέση');
+test('AiClient::serviceUrl: το /spelling δίπλα στο /analyze', function (): void {
+    $saved = getenv('AI_SERVICE_URL');
+    try {
+        putenv('AI_SERVICE_URL=http://127.0.0.1:8000/analyze');
+        assert_same('http://127.0.0.1:8000/analyze', AiClient::serviceUrl('analyze'));
+        assert_same('http://127.0.0.1:8000/spelling', AiClient::serviceUrl('spelling'));
+        putenv('AI_SERVICE_URL=https://ai.example.test/v1/analyze');
+        assert_same('https://ai.example.test/v1/spelling', AiClient::serviceUrl('spelling'), 'με διαδρομή');
+    } finally {
+        putenv($saved === false ? 'AI_SERVICE_URL' : "AI_SERVICE_URL={$saved}");
+    }
 });
 
-test('ορθογραφικά: κολλημένες λέξεις χωρίζονται με ένα κενό', function (): void {
+test('ορθογραφικά: POST api/spelling επιστρέφει θέσεις στο κείμενο όπως στάλθηκε', function (): void {
     FakeAi::start();
     $user = make_user();
-    $stored = $user->http->api('POST', 'api/entries', ['body' => 'Μετά πηγασπιτι νωρίς. SPELL=πηγασπιτι>πήγα_σπίτι']);
-    $id = $stored->json()['data']['id'];
-    $item = ['word' => 'πηγασπιτι', 'start' => 5, 'end' => 14, 'suggestions' => ['πήγα σπίτι']];
-    assert_same([$item], $stored->json()['spelling']);
+    $check = fn (mixed $text): Response => $user->http->api('POST', 'api/spelling', ['text' => $text]);
 
-    $fixed = $user->http->api('POST', "api/entries/{$id}/spelling", ['word' => 'πηγασπιτι', 'start' => 5, 'end' => 14, 'replacement' => 'πήγα σπίτι']);
-    assert_same(200, $fixed->status);
-    assert_same('Μετά πήγα σπίτι νωρίς. SPELL=πηγασπιτι>πήγα_σπίτι', $fixed->json()['data']['body']);
-    assert_same(422, $user->http->api('POST', 'api/words', ['word' => 'πήγα σπίτι'])->status, 'το λεξικό μένει χωρίς κενό');
+    $text = "  Σήμερα πιγα, πηγασπιτι \nSPELL=πιγα>πια|πήγα|λίγα,πηγασπιτι>πήγα_σπίτι";
+    $r = $check($text);
+    assert_same(200, $r->status);
+    assert_same([
+        ['word' => 'πιγα', 'start' => 9, 'end' => 13, 'suggestions' => ['πια', 'πήγα', 'λίγα']],
+        ['word' => 'πηγασπιτι', 'start' => 15, 'end' => 24, 'suggestions' => ['πήγα σπίτι']],
+    ], $r->json()['data'], 'χωρίς trim, θέσεις σε χαρακτήρες');
+    assert_same(true, $r->json()['ai_available']);
+
+    assert_same([], $check('   ')->json()['data'], 'κενό κείμενο');
+    assert_same(422, $check(['πιγα'])->status, 'πίνακας');
+    assert_same(401, (new Http())->api('POST', 'api/spelling', ['text' => 'πιγα'], false)->status, 'χωρίς σύνδεση');
+
+    $stored = $user->http->api('POST', 'api/entries', ['body' => 'Σήμερα πιγα. SPELL=πιγα>πήγα']);
+    assert_same(false, array_key_exists('spelling', $stored->json()), 'η αποθήκευση δεν φέρνει πια κουτί');
+    assert_same('Σήμερα πιγα. SPELL=πιγα>πήγα', $stored->json()['data']['body'], 'το κείμενο δεν αλλάζει μόνο του');
+
+    FakeAi::stop();
+    $down = $check('Σήμερα πιγα. SPELL=πιγα>πήγα')->json();
+    assert_same([[], false], [$down['data'], $down['ai_available']], 'AI κάτω');
 });
 
-test('ορθογραφικά: «Είναι σωστό» κρατά τη λέξη στο προσωπικό λεξικό', function (): void {
+test('ορθογραφικά: ✓ κρατά τη λέξη στο προσωπικό λεξικό και δεν ξαναρωτιέται', function (): void {
     FakeAi::start();
     $user = make_user();
-    $body = 'Ήμουν σαν λούζερ σήμερα. SPELL=λούζερ>λουθερ';
-    assert_same('λούζερ', $user->http->api('POST', 'api/entries', ['body' => $body])->json()['spelling'][0]['word'] ?? null, 'πριν');
+    $text = 'Ήμουν σαν λούζερ σήμερα. SPELL=λούζερ>λουθερ';
+    $words = fn (TestUser $u): array => array_column($u->http->api('POST', 'api/spelling', ['text' => $text])->json()['data'], 'word');
+    assert_same(['λούζερ'], $words($user), 'πριν');
 
     assert_same(201, $user->http->api('POST', 'api/words', ['word' => 'λούζερ'])->status);
     assert_same(201, $user->http->api('POST', 'api/words', ['word' => 'λούζερ'])->status, 'δεύτερη φορά');
-    assert_same(422, $user->http->api('POST', 'api/words', ['word' => 'δύο λέξεις'])->status);
+    assert_same(422, $user->http->api('POST', 'api/words', ['word' => 'πήγα σπίτι'])->status, 'το λεξικό μένει χωρίς κενό');
     assert_same(422, $user->http->api('POST', 'api/words', ['word' => ['λούζερ']])->status, 'πίνακας');
     assert_same(422, $user->http->api('POST', 'api/words', ['word' => str_repeat('α', 101)])->status, 'πάνω από 100');
 
@@ -86,19 +85,18 @@ test('ορθογραφικά: «Είναι σωστό» κρατά τη λέξη
     $stmt->execute([':id' => $user->id]);
     assert_same(['λούζερ'], $stmt->fetchAll(PDO::FETCH_COLUMN), 'μία γραμμή');
 
-    assert_same([], $user->http->api('POST', 'api/entries', ['body' => $body])->json()['spelling'], 'δεν ξαναρωτιέται');
-    assert_same('λούζερ', make_user()->http->api('POST', 'api/entries', ['body' => $body])->json()['spelling'][0]['word'] ?? null, 'ο άλλος χρήστης ρωτιέται');
+    assert_same([], $words($user), 'δεν ξαναρωτιέται');
+    assert_same(['λούζερ'], $words(make_user()), 'ο άλλος χρήστης ρωτιέται');
     assert_same(['λούζερ'], $user->http->get('account/export')->json()['words'], 'στην εξαγωγή');
 });
 
-test('ορθογραφικά: χωρίς πεδίο spelling από το AI το κουτί δεν εμφανίζεται', function (): void {
+test('ορθογραφικά: γραμμή προτάσεων κάτω από τα textarea, χωρίς κουτί μετά την αποθήκευση', function (): void {
     FakeAi::start();
     $user = make_user();
-    assert_same([], $user->http->api('POST', 'api/entries', ['body' => 'Μια ήσυχη μέρα SCORE=0.2'])->json()['spelling']);
+    $editor = $user->http->get('entry/editor')->body;
+    assert_true(str_contains($editor, 'data-suggest-for="entry-body"'), 'editor');
+    assert_true(!str_contains($editor, 'Μήπως εννοούσες'), 'χωρίς το παλιό κουτί');
 
-    FakeAi::stop();
-    assert_same([], $user->http->api('POST', 'api/entries', ['body' => 'Μια ήσυχη μέρα πεπατημα'])->json()['spelling'], 'AI κάτω');
-
-    $html = $user->http->get('entry/editor')->body;
-    assert_true(preg_match('/<section class="spelling" id="spelling" hidden/', $html) === 1, 'κρυφό κουτί στον editor');
+    $id = $user->http->api('POST', 'api/entries', ['body' => 'Μια ήσυχη μέρα'])->json()['data']['id'];
+    assert_true(str_contains($user->http->get("entry/{$id}")->body, 'data-suggest-for="edit-body"'), 'επεξεργασία');
 });

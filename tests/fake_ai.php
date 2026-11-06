@@ -3,7 +3,8 @@ declare(strict_types=1);
 
 // Ψευτικο AI service για τα tests: php -S 127.0.0.1:8000 tests/fake_ai.php (το ξεκιναει το run.php).
 // Η απαντηση βγαινει απο το κειμενο: "SCORE=-0.8 EMO=Λύπη EMOS=Λύπη,Άγχος ENT=Μαρία,Νίκος IRONY=0.8 DIST=0.3
-// TYPES=Καταστροφολογία RISK=0.6 SPELL=πεπατημα>περπάτημα|πατήματα,πηγασπιτι>πήγα_σπίτι" (_ = κενό). BADPROB -> irony/distortion/risk με μη αριθμητικη πιθανοτητα.
+// TYPES=Καταστροφολογία RISK=0.6". Το POST /spelling απαντα μονο με τα SPELL=πεπατημα>περπάτημα|πατήματα,πηγασπιτι>πήγα_σπίτι
+// (_ = κενο), με θεσεις σε χαρακτηρες και χωρις τα known_words. BADPROB -> irony/distortion/risk με μη αριθμητικη πιθανοτητα.
 // Προεπιλογη: εκπαιδευμενο μοντελο σε ολα τα tasks. UNTRAINED -> model_trained=false,
 // TRAINED=sentiment,emotion -> εκπαιδευμενα μονο αυτα.
 
@@ -59,9 +60,13 @@ foreach ($list('SPELL') as $item) {
     $spelling[] = ['word' => $word, 'start' => $start, 'end' => $start + mb_strlen($word), 'suggestions' => explode('|', str_replace('_', ' ', $suggestions))];
 }
 
+if (str_ends_with((string) parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH), '/spelling')) {
+    echo json_encode(['success' => true, 'spelling' => $spelling], JSON_UNESCAPED_UNICODE);
+    return;
+}
+
 echo json_encode([
     'success' => true,
-    'spelling' => $spelling,
     'sentiment_score' => (float) ($find('SCORE', '-?[\d.]+') ?? 0),
     'dominant_emotion' => $emotion,
     'emotions' => $list('EMOS'),

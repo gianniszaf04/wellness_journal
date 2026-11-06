@@ -194,7 +194,7 @@
 
     const saved = {
         box: $('saved'),
-        summary(entry) {
+        show(entry, message) {
             const level = window.mood.level(entry.sentiment_score);
             $('saved-mood').style.setProperty('--mood', level ? `var(--mood-${level})` : 'var(--dashed)');
             $('saved-summary').textContent = [
@@ -202,13 +202,6 @@
                 level ? window.mood.label(level) : null,
                 entry.emotion_name ? entry.emotion_name.toLowerCase() : null,
             ].filter(Boolean).join(' · ');
-        },
-        show(entry, message, spelling) {
-            this.summary(entry);
-            window.spelling.render(entry.id, spelling, data => {
-                this.summary(data.data);
-                support.render(data.support || null);
-            });
             const text = $('saved-message');
             text.textContent = message?.message_text || '';
             text.hidden = !message?.message_text;
@@ -219,7 +212,6 @@
             window.scrollTo({ top: 0, behavior: 'smooth' });
         },
         hide() {
-            window.spelling.render(null, []);
             this.box.hidden = true;
             grid.hidden = false;
         },
@@ -253,7 +245,7 @@
         storage.clear();
         draftStatus.textContent = '';
         support.render(result.data.support || null);
-        saved.show(result.data.data, result.data.message, result.data.spelling);
+        saved.show(result.data.data, result.data.message);
     });
 
     $('saved-again').addEventListener('click', () => {
