@@ -20,7 +20,8 @@ test('AiClient::spelling κρατά μόνο λέξεις που υπάρχου�
     assert_same([], $spelling([$item('πεπατημα', 4, 100)]), 'εκτός κειμένου');
     assert_same([], $spelling([$item('πεπατημα', '4', '12')]), 'θέσεις ως string');
     assert_same([], $spelling([$item('λούζερ', 21, 27, ['λουθερ'])], ['Λούζερ']), 'λέξη του λεξικού');
-    assert_same([], $spelling([$item('πεπατημα', 4, 12, ['πεπατημα', 'δύο λέξεις', '<b>'])]), 'καμία έγκυρη πρόταση');
+    assert_same([], $spelling([$item('πεπατημα', 4, 12, ['πεπατημα', 'τρεις λέξεις εδώ', 'δύο  κενά', ' αρχή', 'τέλος ', '<b>'])]), 'καμία έγκυρη πρόταση');
+    assert_same([$item('πεπατημα', 4, 12, ['πήγα σπίτι'])], $spelling([$item('πεπατημα', 4, 12, ['πήγα σπίτι'])]), 'δύο λέξεις με ένα κενό');
     assert_same([$item('πεπατημα', 4, 12, ['α', 'β', 'γ'])], $spelling([$item('πεπατημα', 4, 12, ['α', 'β', 'α', 'γ', 'δ'])]), 'έως 3 χωρίς διπλές');
     assert_same(5, count($spelling(array_fill(0, 7, $item('πεπατημα', 4, 12)))), 'έως 5 λέξεις');
     assert_same([], AiClient::spelling([], $text), 'χωρίς πεδίο spelling');
@@ -42,7 +43,7 @@ test('ορθογραφικά: πρόταση μετά την αποθήκευσ�
 
     assert_same(409, $fix(['start' => 8, 'end' => 16] + $base + ['replacement' => 'περπάτημα'])->status, 'άλλες θέσεις');
     assert_same(422, $fix($base + ['replacement' => '<b>x</b>'])->status, 'άκυρη αντικατάσταση');
-    assert_same(422, $fix($base + ['replacement' => 'δύο λέξεις'])->status, 'δύο λέξεις');
+    assert_same(422, $fix($base + ['replacement' => 'τρεις λέξεις εδώ'])->status, 'τρεις λέξεις');
     assert_same(422, $fix(['start' => 15, 'end' => 7] + $base + ['replacement' => 'περπάτημα'])->status, 'ανάποδες θέσεις');
     assert_same(404, make_user()->http->api('POST', "api/entries/{$id}/spelling", $base + ['replacement' => 'περπάτημα'])->status, 'άλλου χρήστη');
 
@@ -53,6 +54,20 @@ test('ορθογραφικά: πρόταση μετά την αποθήκευσ�
     assert_same('0.5000', $data['data']['sentiment_score'], 'ξανατρέχει η ανάλυση');
     assert_same([], $data['spelling'], 'η λέξη διορθώθηκε');
     assert_same(409, $fix($base + ['replacement' => 'πατήματα'])->status, 'δεύτερη φορά στην ίδια θέση');
+});
+
+test('ορθογραφικά: κολλημένες λέξεις χωρίζονται με ένα κενό', function (): void {
+    FakeAi::start();
+    $user = make_user();
+    $stored = $user->http->api('POST', 'api/entries', ['body' => 'Μετά πηγασπιτι νωρίς. SPELL=πηγασπιτι>πήγα_σπίτι']);
+    $id = $stored->json()['data']['id'];
+    $item = ['word' => 'πηγασπιτι', 'start' => 5, 'end' => 14, 'suggestions' => ['πήγα σπίτι']];
+    assert_same([$item], $stored->json()['spelling']);
+
+    $fixed = $user->http->api('POST', "api/entries/{$id}/spelling", ['word' => 'πηγασπιτι', 'start' => 5, 'end' => 14, 'replacement' => 'πήγα σπίτι']);
+    assert_same(200, $fixed->status);
+    assert_same('Μετά πήγα σπίτι νωρίς. SPELL=πηγασπιτι>πήγα_σπίτι', $fixed->json()['data']['body']);
+    assert_same(422, $user->http->api('POST', 'api/words', ['word' => 'πήγα σπίτι'])->status, 'το λεξικό μένει χωρίς κενό');
 });
 
 test('ορθογραφικά: «Είναι σωστό» κρατά τη λέξη στο προσωπικό λεξικό', function (): void {

@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 // Ψευτικο AI service για τα tests: php -S 127.0.0.1:8000 tests/fake_ai.php (το ξεκιναει το run.php).
 // Η απαντηση βγαινει απο το κειμενο: "SCORE=-0.8 EMO=Λύπη EMOS=Λύπη,Άγχος ENT=Μαρία,Νίκος IRONY=0.8 DIST=0.3
-// TYPES=Καταστροφολογία RISK=0.6 SPELL=πεπατημα>περπάτημα|πατήματα". BADPROB -> irony/distortion/risk με μη αριθμητικη πιθανοτητα.
+// TYPES=Καταστροφολογία RISK=0.6 SPELL=πεπατημα>περπάτημα|πατήματα,πηγασπιτι>πήγα_σπίτι" (_ = κενό). BADPROB -> irony/distortion/risk με μη αριθμητικη πιθανοτητα.
 // Προεπιλογη: εκπαιδευμενο μοντελο σε ολα τα tasks. UNTRAINED -> model_trained=false,
 // TRAINED=sentiment,emotion -> εκπαιδευμενα μονο αυτα.
 
@@ -56,7 +56,7 @@ foreach ($list('SPELL') as $item) {
         continue;
     }
     $start = mb_strlen(substr($text, 0, $m[0][1]));
-    $spelling[] = ['word' => $word, 'start' => $start, 'end' => $start + mb_strlen($word), 'suggestions' => explode('|', $suggestions)];
+    $spelling[] = ['word' => $word, 'start' => $start, 'end' => $start + mb_strlen($word), 'suggestions' => explode('|', str_replace('_', ' ', $suggestions))];
 }
 
 echo json_encode([

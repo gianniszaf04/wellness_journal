@@ -37,7 +37,7 @@ class AiClient
 
             $suggestions = array_slice(array_values(array_unique(array_filter(
                 self::labels($item['suggestions'] ?? null),
-                static fn (string $suggestion): bool => $suggestion !== $word && UserWord::isValid($suggestion)
+                static fn (string $suggestion): bool => $suggestion !== $word && UserWord::isValidSuggestion($suggestion)
             ))), 0, self::MAX_SUGGESTIONS);
             if ($suggestions === []) {
                 continue;

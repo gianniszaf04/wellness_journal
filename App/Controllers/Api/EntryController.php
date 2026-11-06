@@ -345,7 +345,7 @@ class EntryController
         $replacement = $request->input('replacement');
         $start = filter_var($request->input('start'), FILTER_VALIDATE_INT, ['options' => ['min_range' => 0]]);
         $end = filter_var($request->input('end'), FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
-        if (!is_string($word) || !is_string($replacement) || !UserWord::isValid($replacement)
+        if (!is_string($word) || !is_string($replacement) || !UserWord::isValidSuggestion($replacement)
             || $start === false || $end === false || $end <= $start) {
             json_response(['success' => false, 'error' => 'Μη έγκυρη διόρθωση.'], 422);
         }
