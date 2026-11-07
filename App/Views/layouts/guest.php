@@ -22,6 +22,7 @@
     </main>
 
     <script src="<?= e(asset('js/theme.js')) ?>" defer></script>
+    <script src="<?= e(asset('js/actions.js')) ?>" defer></script>
     <?php foreach ($scripts ?? [] as $script): ?>
         <script src="<?= e(asset('js/' . $script)) ?>" defer></script>
     <?php endforeach; ?>

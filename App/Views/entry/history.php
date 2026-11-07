@@ -20,12 +20,12 @@
         </div>
         <div class="filters__moods" role="radiogroup" aria-label="Διάθεση">
             <label class="mood-pill">
-                <input type="radio" name="mood" value="0" onchange="this.form.submit()"<?= $mood === 0 ? ' checked' : '' ?>>
+                <input type="radio" name="mood" value="0" data-autosubmit<?= $mood === 0 ? ' checked' : '' ?>>
                 <span>Όλες</span>
             </label>
             <?php for ($m = 5; $m >= 1; $m--): ?>
                 <label class="mood-pill">
-                    <input type="radio" name="mood" value="<?= $m ?>" onchange="this.form.submit()"<?= $mood === $m ? ' checked' : '' ?>>
+                    <input type="radio" name="mood" value="<?= $m ?>" data-autosubmit<?= $mood === $m ? ' checked' : '' ?>>
                     <span><i class="mood-<?= $m ?>"></i><?= e(mood_label($m)) ?></span>
                 </label>
             <?php endfor; ?>

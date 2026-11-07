@@ -11,15 +11,8 @@ if (session_status() === PHP_SESSION_ACTIVE && isset($_SESSION['user_id'])) {
     }
 }
 ?>
-<script>
-    try {
-        document.documentElement.dataset.theme = localStorage.getItem('theme')
-            || <?= json_encode($themePref) ?>
-            || (matchMedia('(prefers-color-scheme: dark)').matches ? 'night' : 'day');
-    } catch (e) {
-        document.documentElement.dataset.theme = <?= json_encode($themePref ?: 'day') ?>;
-    }
-</script>
+<meta name="theme-pref" content="<?= e($themePref) ?>">
+<script src="<?= e(asset('js/theme-init.js')) ?>"></script>
 <link rel="icon" href="<?= e(asset('img/favicon.svg')) ?>" type="image/svg+xml">
 <link rel="prefetch" href="<?= e(url('public/assets/img/grain-day.png')) ?>" as="image">
 <link rel="prefetch" href="<?= e(url('public/assets/img/grain-night.png')) ?>" as="image">

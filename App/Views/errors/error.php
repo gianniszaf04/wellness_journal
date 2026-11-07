@@ -4,10 +4,10 @@
 
 <div class="auth__actions">
     <?php if ($status === 403 || $status === 429): ?>
-        <button class="btn btn--block" type="button" onclick="history.back()">Πίσω στην προηγούμενη σελίδα</button>
+        <button class="btn btn--block" type="button" data-back>Πίσω στην προηγούμενη σελίδα</button>
         <a class="btn btn--quiet btn--block" href="<?= e(url('/')) ?>">Στην αρχική</a>
     <?php else: ?>
         <a class="btn btn--block" href="<?= e(url('/')) ?>">Στην αρχική</a>
-        <button class="btn btn--quiet btn--block" type="button" onclick="history.back()">Πίσω στην προηγούμενη σελίδα</button>
+        <button class="btn btn--quiet btn--block" type="button" data-back>Πίσω στην προηγούμενη σελίδα</button>
     <?php endif; ?>
 </div>
