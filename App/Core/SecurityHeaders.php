@@ -18,8 +18,8 @@ class SecurityHeaders{
         header(
             "Content-Security-Policy: "
             . "default-src 'self' ; "
-            . "script-src 'self' 'unsafe-inline'; "
-            . "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+            . "script-src 'self'; "
+            . "style-src 'self' https://fonts.googleapis.com; "
             . "font-src 'self' https://fonts.gstatic.com; "
             . "img-src 'self' data: ; "
             . "connect-src 'self' ; "

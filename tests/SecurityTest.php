@@ -141,3 +141,21 @@ test('login: ίδιος χρόνος απάντησης όταν το email δε
     $real = (string) db()->query('SELECT password_hash FROM users WHERE id = ' . $user->id)->fetchColumn();
     assert_same(password_get_info($real)['options'], password_get_info($dummy)['options'], 'ίδιο bcrypt cost με τα πραγματικά');
 });
+
+test('CSP χωρίς unsafe-inline και σελίδες χωρίς inline script, style ή on*', function (): void {
+    FakeAi::start();
+    $user = make_user();
+    $id = (int) $user->http->api('POST', 'api/entries', ['body' => 'Μια ήσυχη μέρα. SCORE=0.6 EMO=Ηρεμία'])->json()['data']['id'];
+    $guest = new Http();
+
+    $csp = (string) $guest->get('login')->header('content-security-policy');
+    assert_true($csp !== '' && !str_contains($csp, 'unsafe-inline'), "CSP: {$csp}");
+
+    $pages = [[$guest, 'login'], [$guest, 'register'], [$guest, 'password/forgot'], [$guest, 'no-such-page'],
+        [$user->http, 'dashboard'], [$user->http, 'analytics'], [$user->http, 'profile'],
+        [$user->http, 'entry/editor'], [$user->http, 'entry/history'], [$user->http, "entry/{$id}"]];
+    foreach ($pages as [$http, $path]) {
+        $html = $http->get($path)->body;
+        assert_same(0, preg_match('/<script(?![^>]*\ssrc=)[^>]*>|<style\b|\sstyle=|\son[a-z]+=/i', $html, $m), "/{$path}: " . ($m[0] ?? ''));
+    }
+});
