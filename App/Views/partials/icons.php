@@ -1,10 +1,10 @@
 <svg class="sprite" aria-hidden="true" focusable="false">
     <symbol id="book" viewBox="0 -4 120 94">
-        <path d="M60 22 C46 12 26 10 10 14 L10 76 C26 72 46 74 60 84 C74 74 94 72 110 76 L110 14 C94 10 74 12 60 22 Z" style="fill: var(--card); stroke: var(--ink)" stroke-width="2.4" stroke-linejoin="round"/>
-        <path d="M60 22 L60 84" style="stroke: var(--ink)" stroke-width="2.2"/>
-        <path d="M20 28 C30 26 40 27 50 31 M20 38 C30 36 40 37 50 41 M20 48 C30 46 38 47 46 50" style="stroke: var(--dashed)" stroke-width="2" fill="none" stroke-linecap="round"/>
-        <path d="M84 52 C76 46 70 40 74 34 C77 30 82 31 84 36 C86 31 91 30 94 34 C98 40 92 46 84 52 Z" style="fill: var(--mood-1); stroke: var(--ink)" stroke-width="2" stroke-linejoin="round"/>
-        <path d="M98 6 L100 0 M106 12 L112 9 M90 4 L89 -2" style="stroke: var(--mustard)" stroke-width="2.4" stroke-linecap="round"/>
+        <path d="M60 22 C46 12 26 10 10 14 L10 76 C26 72 46 74 60 84 C74 74 94 72 110 76 L110 14 C94 10 74 12 60 22 Z" class="book__cover" stroke-width="2.4" stroke-linejoin="round"/>
+        <path d="M60 22 L60 84" class="book__spine" stroke-width="2.2"/>
+        <path d="M20 28 C30 26 40 27 50 31 M20 38 C30 36 40 37 50 41 M20 48 C30 46 38 47 46 50" class="book__lines" stroke-width="2" fill="none" stroke-linecap="round"/>
+        <path d="M84 52 C76 46 70 40 74 34 C77 30 82 31 84 36 C86 31 91 30 94 34 C98 40 92 46 84 52 Z" class="book__heart" stroke-width="2" stroke-linejoin="round"/>
+        <path d="M98 6 L100 0 M106 12 L112 9 M90 4 L89 -2" class="book__shine" stroke-width="2.4" stroke-linecap="round"/>
     </symbol>
 
     <symbol id="spark" viewBox="0 0 24 24">

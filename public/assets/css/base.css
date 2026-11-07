@@ -184,6 +184,12 @@ svg {
     height: 0;
 }
 
+.book__cover { fill: var(--card); stroke: var(--ink); }
+.book__spine { stroke: var(--ink); }
+.book__lines { stroke: var(--dashed); }
+.book__heart { fill: var(--mood-1); stroke: var(--ink); }
+.book__shine { stroke: var(--mustard); }
+
 ::view-transition-old(root),
 ::view-transition-new(root) {
     animation-duration: .25s;

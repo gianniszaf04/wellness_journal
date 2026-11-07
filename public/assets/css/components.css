@@ -6,6 +6,17 @@
     background-size: 100% 46%;
 }
 
+.mark--mustard { --hl: var(--mustard); }
+.mark--peach { --hl: var(--peach); }
+.mark--sage { --hl: var(--sage); }
+.mark--sky { --hl: var(--sky); }
+
+.mood-1 { --mood: var(--mood-1); }
+.mood-2 { --mood: var(--mood-2); }
+.mood-3 { --mood: var(--mood-3); }
+.mood-4 { --mood: var(--mood-4); }
+.mood-5 { --mood: var(--mood-5); }
+
 .card {
     position: relative;
     padding: 26px;

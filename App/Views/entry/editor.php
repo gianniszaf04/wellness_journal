@@ -1,7 +1,7 @@
 <div class="greet">
     <div>
         <p class="greet__date"><?= e($todayLabel) ?></p>
-        <h1>Πώς ήταν η <span class="mark" style="--hl: var(--sage)">μέρα</span> σου;</h1>
+        <h1>Πώς ήταν η <span class="mark mark--sage">μέρα</span> σου;</h1>
     </div>
 </div>
 
@@ -39,7 +39,7 @@
 
             <div class="live__meter" aria-hidden="true">
                 <?php for ($m = 1; $m <= 5; $m++): ?>
-                    <i data-level="<?= $m ?>" style="--mood: var(--mood-<?= $m ?>)"></i>
+                    <i class="mood-<?= $m ?>" data-level="<?= $m ?>"></i>
                 <?php endfor; ?>
             </div>
             <p class="live__mood" id="live-mood">—</p>

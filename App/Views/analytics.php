@@ -11,7 +11,7 @@ $emotionTotal = array_sum(array_column($emotions, 'value'));
 <div class="greet">
     <div>
         <p class="greet__date">πώς κυλάει ο καιρός σου</p>
-        <h1>Τα <span class="mark" style="--hl: var(--mustard)">στατιστικά</span> σου</h1>
+        <h1>Τα <span class="mark mark--mustard">στατιστικά</span> σου</h1>
     </div>
 </div>
 
@@ -134,7 +134,7 @@ $emotionTotal = array_sum(array_column($emotions, 'value'));
                             <td><?= (int) $entity['mentions'] ?></td>
                             <td>
                                 <?php if ($entity['level']): ?>
-                                    <i class="mood-dot" style="background: var(--mood-<?= $entity['level'] ?>)"></i>
+                                    <i class="mood-dot mood-<?= $entity['level'] ?>"></i>
                                     <?= e(mood_label($entity['level'])) ?><?= $entity['emotion'] ? ' · ' . e(mb_strtolower((string) $entity['emotion'])) : '' ?>
                                 <?php else: ?>
                                     –

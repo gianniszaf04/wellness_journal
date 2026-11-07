@@ -28,10 +28,8 @@
     function renderFeel(entry) {
         const level = window.mood.level(entry.sentiment_score);
         const circle = $('feel-mood');
-        if (level) {
-            circle.style.setProperty('--mood', `var(--mood-${level})`);
-        } else {
-            circle.style.removeProperty('--mood');
+        for (let m = 1; m <= 5; m++) {
+            circle.classList.toggle(`mood-${m}`, m === level);
         }
         $('feel-label').textContent = level ? window.mood.label(level) : 'Χωρίς ανάλυση';
 

@@ -1,7 +1,7 @@
 <div class="greet">
     <div>
         <p class="greet__date"><?= e($today) ?></p>
-        <h1><?= e($greeting) ?><?php if ($firstName !== ''): ?>, <span class="mark" style="--hl: var(--peach)"><?= e($firstName) ?></span><?php endif; ?></h1>
+        <h1><?= e($greeting) ?><?php if ($firstName !== ''): ?>, <span class="mark mark--peach"><?= e($firstName) ?></span><?php endif; ?></h1>
     </div>
     <a class="btn" href="<?= e(url('entry/editor')) ?>">Γράψε τη σημερινή σελίδα</a>
 </div>
@@ -36,13 +36,16 @@
                 if ($cell['today']) {
                     $classes[] = 'cal__day--today';
                 }
+                if ($cell['mood']) {
+                    $classes[] = 'mood-' . (int) $cell['mood'];
+                }
                 ?>
-                <div class="<?= implode(' ', $classes) ?>"<?= $cell['mood'] ? ' style="--mood: var(--mood-' . $cell['mood'] . ')"' : '' ?> title="<?= e($cell['title']) ?>"><?= $cell['day'] ?></div>
+                <div class="<?= implode(' ', $classes) ?>" title="<?= e($cell['title']) ?>"><?= $cell['day'] ?></div>
             <?php endforeach; ?>
         </div>
         <div class="legend">
             <?php for ($m = 5; $m >= 1; $m--): ?>
-                <span><i style="background: var(--mood-<?= $m ?>)"></i><?= e(mood_label($m)) ?></span>
+                <span><i class="mood-<?= $m ?>"></i><?= e(mood_label($m)) ?></span>
             <?php endfor; ?>
         </div>
         <?php if ($streak > 0): ?>
@@ -64,7 +67,7 @@
             <div class="week">
                 <?php foreach ($week as $day): ?>
                     <div title="<?= e($day['title']) ?>">
-                        <i class="<?= $day['mood'] ? '' : 'is-empty' ?>"<?= $day['mood'] ? ' style="background: var(--mood-' . $day['mood'] . ')"' : '' ?>></i>
+                        <i class="<?= $day['mood'] ? 'mood-' . (int) $day['mood'] : 'is-empty' ?>"></i>
                         <span><?= e($day['label']) ?></span>
                     </div>
                 <?php endforeach; ?>
@@ -75,14 +78,14 @@
             <h2 class="card__title" id="insights-title">Τι παρατήρησα</h2>
             <?php if ($insights): ?>
                 <?php foreach ($insights as $i => $insight): ?>
-                    <div class="insight">
-                        <svg style="color: var(<?= $i % 2 ? '--rose' : '--mustard' ?>)" aria-hidden="true"><use href="#spark"/></svg>
+                    <div class="insight<?= $i % 2 ? ' insight--rose' : '' ?>">
+                        <svg aria-hidden="true"><use href="#spark"/></svg>
                         <p><?= e((string) $insight['insight_text']) ?></p>
                     </div>
                 <?php endforeach; ?>
             <?php else: ?>
                 <div class="insight">
-                    <svg style="color: var(--mustard)" aria-hidden="true"><use href="#spark"/></svg>
+                    <svg aria-hidden="true"><use href="#spark"/></svg>
                     <p class="muted">Γράψε μερικές μέρες και θα σου πω τι παρατηρώ στις σελίδες σου.</p>
                 </div>
             <?php endif; ?>
@@ -97,8 +100,8 @@
         <?php foreach ($recent as $entry): ?>
             <?php $mood = mood_level($entry['sentiment_score']); ?>
             <a class="entry" href="<?= e(url('entry/' . $entry['id'])) ?>">
-                <i<?= $mood ? ' style="--mood: var(--mood-' . $mood . ')"' : '' ?>></i>
-                <div style="min-width: 0">
+                <i<?= $mood ? ' class="mood-' . $mood . '"' : '' ?>></i>
+                <div class="entry__text">
                     <b><?= e(entry_when((string) $entry['created_at'])) ?></b>
                     <em><?= e(mb_substr((string) $entry['body'], 0, 140)) ?></em>
                 </div>

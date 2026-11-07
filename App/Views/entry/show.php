@@ -50,7 +50,7 @@ $showDistortion = SHOW_DISTORTION_NOTE && $entry['distortion_detected'];
             <span class="tape tape--right tape--rose" aria-hidden="true"></span>
             <h2 class="card__title" id="feel-title">Πώς ένιωσες</h2>
 
-            <i class="feel__mood" id="feel-mood"<?= $mood ? ' style="--mood: var(--mood-' . $mood . ')"' : '' ?> aria-hidden="true"></i>
+            <i class="feel__mood<?= $mood ? ' mood-' . $mood : '' ?>" id="feel-mood" aria-hidden="true"></i>
             <p class="feel__label" id="feel-label"><?= $mood ? e(mood_label($mood)) : 'Χωρίς ανάλυση' ?></p>
 
             <div class="live__emotions" id="feel-emotions"<?= empty($entry['emotion_name']) && !$emotionNames ? ' hidden' : '' ?>>

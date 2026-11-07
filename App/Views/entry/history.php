@@ -1,7 +1,7 @@
 <div class="greet">
     <div>
         <p class="greet__date"><?= $all === 1 ? '1 σελίδα' : number_format($all, 0, ',', '.') . ' σελίδες' ?> στο ημερολόγιό σου</p>
-        <h1>Το <span class="mark" style="--hl: var(--sky)">ιστορικό</span> σου</h1>
+        <h1>Το <span class="mark mark--sky">ιστορικό</span> σου</h1>
     </div>
     <a class="btn" href="<?= e(url('entry/editor')) ?>">Νέα σελίδα</a>
 </div>
@@ -26,7 +26,7 @@
             <?php for ($m = 5; $m >= 1; $m--): ?>
                 <label class="mood-pill">
                     <input type="radio" name="mood" value="<?= $m ?>" onchange="this.form.submit()"<?= $mood === $m ? ' checked' : '' ?>>
-                    <span><i style="background: var(--mood-<?= $m ?>)"></i><?= e(mood_label($m)) ?></span>
+                    <span><i class="mood-<?= $m ?>"></i><?= e(mood_label($m)) ?></span>
                 </label>
             <?php endfor; ?>
         </div>
@@ -50,7 +50,7 @@
                     $level = mood_level($entry['sentiment_score']);
                     $ts = strtotime((string) $entry['entry_date']);
                     ?>
-                    <a class="day-card" href="<?= e(url('entry/' . $entry['id'])) ?>"<?= $level ? ' style="--mood: var(--mood-' . $level . ')"' : '' ?>>
+                    <a class="day-card<?= $level ? ' mood-' . $level : '' ?>" href="<?= e(url('entry/' . $entry['id'])) ?>">
                         <span class="day-card__date">
                             <b><?= date('j', $ts) ?></b>
                             <small><?= e(greek_weekday((int) date('w', $ts), true)) ?></small>
