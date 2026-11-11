@@ -47,3 +47,22 @@ test('emotions και τύποι διαστρέβλωσης φεύγουν με 
     assert_same(200, $user->http->api('DELETE', "api/entries/{$id}")->status);
     assert_same(0, label_rows($id), 'μετά');
 });
+
+test('η Κούραση δεν εμφανίζεται: ούτε ως κύριο συναίσθημα ούτε στη λίστα', function (): void {
+    FakeAi::start();
+    $user = make_user();
+
+    $mixed = create_entry($user, 'SCORE=-0.4 EMO=Κούραση EMOS=Κούραση,Λύπη')['data'];
+    assert_same('Λύπη', $mixed['emotion_name'], 'κύριο γίνεται το επόμενο');
+    assert_same(['Λύπη:0.7000'], labels_of($mixed)[0], 'λίστα χωρίς Κούραση');
+
+    $only = create_entry($user, 'SCORE=-0.4 EMO=Κούραση EMOS=Κούραση')['data'];
+    assert_same([null, []], [$only['emotion_name'], labels_of($only)[0]], 'μόνο Κούραση: κανένα συναίσθημα');
+    assert_same(-0.4, (float) $only['sentiment_score'], 'το sentiment μένει');
+
+    $live = $user->http->api('POST', 'api/sentiment/live', ['text' => 'SCORE=-0.4 EMO=Κούραση EMOS=Κούραση,Λύπη'])->json()['data'];
+    assert_same(['Λύπη', ['Λύπη']], [$live['emotion']['name'] ?? null, $live['emotions']], 'ζωντανή ανάλυση');
+
+    $other = create_entry($user, 'SCORE=0.5 EMO=Χαρά EMOS=Χαρά,Ηρεμία')['data'];
+    assert_same(['Χαρά', ['Χαρά:0.9000', 'Ηρεμία:0.7000']], [$other['emotion_name'], labels_of($other)[0]], 'τα άλλα δεν αλλάζουν');
+});

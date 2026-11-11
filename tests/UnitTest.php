@@ -97,3 +97,26 @@ test('Router: exception σε middleware δίνει 500, JSON για /api', funct
         http_response_code(200);
     }
 });
+
+test('AiClient::withoutHiddenEmotions βγάζει την Κούραση και κρατά τα υπόλοιπα', function (): void {
+    $data = AiClient::withoutHiddenEmotions([
+        'sentiment_score' => -0.4,
+        'dominant_emotion' => 'Κούραση',
+        'emotions' => ['Κούραση', 'Λύπη'],
+        'analysis' => ['emotion' => [
+            'label' => 'Κούραση',
+            'labels' => ['Κούραση', 'Λύπη'],
+            'probabilities' => ['Κούραση' => 0.9, 'Λύπη' => 0.7],
+        ]],
+    ]);
+    assert_same(['Λύπη', ['Λύπη']], [$data['dominant_emotion'], $data['emotions']]);
+    assert_same(['label' => 'Λύπη', 'labels' => ['Λύπη'], 'probabilities' => ['Λύπη' => 0.7]], $data['analysis']['emotion']);
+    assert_same(-0.4, $data['sentiment_score']);
+
+    $only = AiClient::withoutHiddenEmotions(['dominant_emotion' => 'Κούραση', 'emotions' => ['Κούραση']]);
+    assert_same([null, []], [$only['dominant_emotion'], $only['emotions']], 'μόνο Κούραση');
+
+    $plain = ['dominant_emotion' => 'Χαρά', 'emotions' => ['Χαρά'], 'analysis' => ['emotion' => ['probabilities' => ['Χαρά' => 0.9]]]];
+    assert_same($plain, AiClient::withoutHiddenEmotions($plain), 'χωρίς Κούραση: ίδιο');
+    assert_same([], AiClient::withoutHiddenEmotions([]), 'άδειο');
+});

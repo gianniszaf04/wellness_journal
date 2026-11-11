@@ -8,6 +8,7 @@ class AiClient
 {
     public const MAX_SPELLING_WORDS = 50;
     public const MAX_SUGGESTIONS = 3;
+    public const HIDDEN_EMOTIONS = ['Κούραση'];
     private const SPELLING_TIMEOUT_MS = 1000;
 
     public static function payload(string $text, array $knownWords = []): array
@@ -67,7 +68,7 @@ class AiClient
         $timeout = (int) getenv('AI_SERVICE_TIMEOUT') ?: 4;
         $aiData = $this->post(self::serviceUrl('analyze'), self::payload($text, $knownWords), $timeout * 1000);
 
-        return $aiData === null ? null : self::withoutUntrained($aiData);
+        return $aiData === null ? null : self::withoutHiddenEmotions(self::withoutUntrained($aiData));
     }
 
     public function checkSpelling(string $text, array $knownWords = []): ?array
@@ -148,6 +149,32 @@ class AiClient
         }
         if (!self::isTrained($aiData, 'distortion_types')) {
             unset($aiData['analysis']['distortion']['types'], $aiData['analysis']['distortion']['type_probabilities']);
+        }
+        return $aiData;
+    }
+
+    public static function withoutHiddenEmotions(array $aiData): array
+    {
+        $visible = static fn (mixed $labels): array => array_values(array_diff(self::labels($labels), self::HIDDEN_EMOTIONS));
+
+        if (array_key_exists('emotions', $aiData)) {
+            $aiData['emotions'] = $visible($aiData['emotions']);
+        }
+        if (in_array($aiData['dominant_emotion'] ?? null, self::HIDDEN_EMOTIONS, true)) {
+            $aiData['dominant_emotion'] = $aiData['emotions'][0] ?? null;
+        }
+        if (is_array($aiData['analysis']['emotion'] ?? null)) {
+            $emotion = $aiData['analysis']['emotion'];
+            if (array_key_exists('labels', $emotion)) {
+                $emotion['labels'] = $visible($emotion['labels']);
+            }
+            if (in_array($emotion['label'] ?? null, self::HIDDEN_EMOTIONS, true)) {
+                $emotion['label'] = $aiData['dominant_emotion'] ?? null;
+            }
+            if (is_array($emotion['probabilities'] ?? null)) {
+                $emotion['probabilities'] = array_diff_key($emotion['probabilities'], array_flip(self::HIDDEN_EMOTIONS));
+            }
+            $aiData['analysis']['emotion'] = $emotion;
         }
         return $aiData;
     }
