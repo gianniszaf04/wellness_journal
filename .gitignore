@@ -13,6 +13,7 @@ Python/data/raw/
 Python/data/interim/
 Python/data/processed/
 Python/data/recheck/
+Python/data/synthetic/
 Python/data/annotation/check_set.csv
 Python/training/train.csv
 Python/mtl_config.json
