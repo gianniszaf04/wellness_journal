@@ -1,0 +1,326 @@
+{
+  "data": "/Applications/XAMPP/xamppfiles/htdocs/wellness_journal/Python/training/train.csv",
+  "split": "val",
+  "rows": 2671,
+  "weights": "/Applications/XAMPP/xamppfiles/htdocs/wellness_journal/Python/mtl_model.pt",
+  "tasks": {
+    "sentiment": {
+      "threshold": "argmax",
+      "macro_f1": 0.753,
+      "accuracy": 0.81,
+      "labels": [
+        {
+          "label": "Αρνητικό",
+          "precision": 0.856,
+          "recall": 0.859,
+          "f1": 0.858,
+          "support": 375
+        },
+        {
+          "label": "Ουδέτερο",
+          "precision": 0.525,
+          "recall": 0.585,
+          "f1": 0.554,
+          "support": 106
+        },
+        {
+          "label": "Θετικό",
+          "precision": 0.866,
+          "recall": 0.828,
+          "f1": 0.847,
+          "support": 303
+        }
+      ],
+      "confusion": [
+        [
+          322,
+          35,
+          18
+        ],
+        [
+          23,
+          62,
+          21
+        ],
+        [
+          31,
+          21,
+          251
+        ]
+      ]
+    },
+    "emotion": {
+      "micro_f1": 0.544,
+      "labels": [
+        {
+          "label": "Χαρά",
+          "precision": 0.599,
+          "recall": 0.571,
+          "f1": 0.585,
+          "support": 196,
+          "threshold": 0.45
+        },
+        {
+          "label": "Λύπη",
+          "precision": 0.353,
+          "recall": 0.516,
+          "f1": 0.419,
+          "support": 225,
+          "threshold": 0.3
+        },
+        {
+          "label": "Θυμός",
+          "precision": 0.491,
+          "recall": 0.645,
+          "f1": 0.558,
+          "support": 349,
+          "threshold": 0.25
+        },
+        {
+          "label": "Φόβος",
+          "precision": 0.53,
+          "recall": 0.613,
+          "f1": 0.569,
+          "support": 199,
+          "threshold": 0.3
+        },
+        {
+          "label": "Άγχος",
+          "precision": 0.571,
+          "recall": 0.333,
+          "f1": 0.421,
+          "support": 24,
+          "threshold": 0.3
+        },
+        {
+          "label": "Ηρεμία",
+          "precision": 0.55,
+          "recall": 0.611,
+          "f1": 0.579,
+          "support": 18,
+          "threshold": 0.2
+        },
+        {
+          "label": "Αγάπη",
+          "precision": 0.747,
+          "recall": 0.731,
+          "f1": 0.739,
+          "support": 93,
+          "threshold": 0.25
+        },
+        {
+          "label": "Έκπληξη",
+          "precision": 0.427,
+          "recall": 0.601,
+          "f1": 0.499,
+          "support": 243,
+          "threshold": 0.25
+        },
+        {
+          "label": "Ενθουσιασμός",
+          "precision": 0.538,
+          "recall": 0.553,
+          "f1": 0.545,
+          "support": 76,
+          "threshold": 0.3
+        },
+        {
+          "label": "Ντροπή",
+          "precision": 0.438,
+          "recall": 0.368,
+          "f1": 0.4,
+          "support": 38,
+          "threshold": 0.15
+        },
+        {
+          "label": "Ενοχή",
+          "precision": 0.875,
+          "recall": 0.845,
+          "f1": 0.86,
+          "support": 58,
+          "threshold": 0.4
+        }
+      ]
+    },
+    "distortion": {
+      "threshold": 0.6,
+      "macro_f1": 0.771,
+      "accuracy": 0.774,
+      "labels": [
+        {
+          "label": "Όχι",
+          "precision": 0.75,
+          "recall": 0.853,
+          "f1": 0.798,
+          "support": 373
+        },
+        {
+          "label": "Ναι",
+          "precision": 0.81,
+          "recall": 0.688,
+          "f1": 0.744,
+          "support": 340
+        }
+      ],
+      "confusion": [
+        [
+          318,
+          55
+        ],
+        [
+          106,
+          234
+        ]
+      ]
+    },
+    "distortion_types": {
+      "micro_f1": 0.388,
+      "labels": [
+        {
+          "label": "Καταστροφολογία",
+          "precision": 0.158,
+          "recall": 0.622,
+          "f1": 0.251,
+          "support": 37,
+          "threshold": 0.05
+        },
+        {
+          "label": "Όλα ή τίποτα",
+          "precision": 0.157,
+          "recall": 0.486,
+          "f1": 0.237,
+          "support": 37,
+          "threshold": 0.05
+        },
+        {
+          "label": "Υπεργενίκευση",
+          "precision": 0.258,
+          "recall": 0.222,
+          "f1": 0.239,
+          "support": 36,
+          "threshold": 0.25
+        },
+        {
+          "label": "Ανάγνωση σκέψης",
+          "precision": 0.371,
+          "recall": 0.25,
+          "f1": 0.299,
+          "support": 52,
+          "threshold": 0.25
+        },
+        {
+          "label": "Προφητεία",
+          "precision": 0.743,
+          "recall": 0.619,
+          "f1": 0.675,
+          "support": 42,
+          "threshold": 0.35
+        },
+        {
+          "label": "Συναισθηματική συλλογιστική",
+          "precision": 0.476,
+          "recall": 0.444,
+          "f1": 0.46,
+          "support": 45,
+          "threshold": 0.35
+        },
+        {
+          "label": "Πρέπει",
+          "precision": 0.857,
+          "recall": 0.558,
+          "f1": 0.676,
+          "support": 43,
+          "threshold": 0.4
+        },
+        {
+          "label": "Ταμπέλες",
+          "precision": 0.627,
+          "recall": 0.583,
+          "f1": 0.604,
+          "support": 72,
+          "threshold": 0.25
+        },
+        {
+          "label": "Προσωποποίηση",
+          "precision": 0.308,
+          "recall": 0.19,
+          "f1": 0.235,
+          "support": 21,
+          "threshold": 0.15
+        },
+        {
+          "label": "Νοητικό φίλτρο",
+          "precision": 0.205,
+          "recall": 0.333,
+          "f1": 0.254,
+          "support": 24,
+          "threshold": 0.2
+        }
+      ]
+    },
+    "risk": {
+      "argmax": {
+        "threshold": "argmax",
+        "macro_f1": 0.767,
+        "accuracy": 0.941,
+        "labels": [
+          {
+            "label": "Όχι",
+            "precision": 0.961,
+            "recall": 0.975,
+            "f1": 0.968,
+            "support": 404
+          },
+          {
+            "label": "Ναι",
+            "precision": 0.63,
+            "recall": 0.515,
+            "f1": 0.567,
+            "support": 33
+          }
+        ],
+        "confusion": [
+          [
+            394,
+            10
+          ],
+          [
+            16,
+            17
+          ]
+        ]
+      },
+      "app": {
+        "threshold": 0.3,
+        "macro_f1": 0.781,
+        "accuracy": 0.941,
+        "labels": [
+          {
+            "label": "Όχι",
+            "precision": 0.966,
+            "recall": 0.97,
+            "f1": 0.968,
+            "support": 404
+          },
+          {
+            "label": "Ναι",
+            "precision": 0.613,
+            "recall": 0.576,
+            "f1": 0.594,
+            "support": 33
+          }
+        ],
+        "confusion": [
+          [
+            392,
+            12
+          ],
+          [
+            14,
+            19
+          ]
+        ]
+      }
+    }
+  }
+}

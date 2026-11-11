@@ -1,0 +1,559 @@
+{
+  "started": "2026-10-31T10:00:00",
+  "note": "Νέες ρυθμίσεις (Β27) στα δεδομένα του 2ου training",
+  "model": {
+    "name": "nlpaueb/bert-base-greek-uncased-v1",
+    "revision": "b1092b2d17c5732186573ce8e76a01f45be927f0"
+  },
+  "device": "mps",
+  "data": {
+    "path": "data/recheck/train_2nd_training.csv",
+    "train": 11941,
+    "val": 2671,
+    "sources": {
+      "train": {
+        "goemotions": 3125,
+        "codipad": 3121,
+        "xed": 2760,
+        "cssrs": 2540,
+        "sentimp": 380,
+        "manual": 15
+      },
+      "val": {
+        "goemotions": 764,
+        "codipad": 710,
+        "xed": 646,
+        "cssrs": 437,
+        "sentimp": 111,
+        "manual": 3
+      }
+    },
+    "annotated_train": {
+      "sentiment": 3104,
+      "emotion": 5901,
+      "irony": 15,
+      "distortion": 3136,
+      "distortion_types": 3134,
+      "risk": 2540
+    }
+  },
+  "params": {
+    "epochs": 10,
+    "batch_size": 16,
+    "lr": 2e-05,
+    "head_lr": 0.0001,
+    "schedule": "linear warmup 10%, μετα γραμμικη μειωση στο 0",
+    "grad_clip": 1.0,
+    "batching": "ομαδες ιδιου μηκους (x50 batches), padding ανα batch σε πολλαπλασιο του 16, αδειασμα της μνημης MPS καθε βημα",
+    "max_len": 128,
+    "seed": 42,
+    "min_examples": 200,
+    "multi_label_threshold": 0.5,
+    "class_weights": {
+      "sentiment": {
+        "Αρνητικό": 0.6912,
+        "Ουδέτερο": 2.1333,
+        "Θετικό": 0.9222
+      },
+      "risk": {
+        "Όχι": 0.5595,
+        "Ναι": 4.7037
+      }
+    },
+    "multi_label_loss": "BCE μεσος ορος στα καλυπτομενα labels, pos_weight = sqrt(αρνητικα/θετικα)",
+    "pos_weight": {
+      "distortion_types": {
+        "Καταστροφολογία": 5.0556,
+        "Όλα ή τίποτα": 4.8461,
+        "Υπεργενίκευση": 3.9254,
+        "Ανάγνωση σκέψης": 3.6847,
+        "Προφητεία": 4.0274,
+        "Συναισθηματική συλλογιστική": 3.9811,
+        "Πρέπει": 4.5402,
+        "Ταμπέλες": 3.5285,
+        "Προσωποποίηση": 6.5213,
+        "Νοητικό φίλτρο": 5.1007
+      },
+      "emotion": {
+        "Χαρά": 2.4277,
+        "Λύπη": 2.1104,
+        "Θυμός": 1.7989,
+        "Φόβος": 2.4805,
+        "Άγχος": 5.1757,
+        "Ηρεμία": 5.4854,
+        "Αγάπη": 2.9842,
+        "Έκπληξη": 2.1721,
+        "Ενθουσιασμός": 2.8792,
+        "Ντροπή": 4.4804,
+        "Ενοχή": 3.8862
+      }
+    },
+    "selection_metric": "macro-F1 (single-label), micro-F1 με ορια ανα label ρυθμισμενα στο validation καθε epoch (multi-label, μονο trained labels)"
+  },
+  "trained_tasks": [
+    "sentiment",
+    "emotion",
+    "distortion",
+    "distortion_types",
+    "risk"
+  ],
+  "trained_labels": {
+    "distortion_types": [
+      "Καταστροφολογία",
+      "Όλα ή τίποτα",
+      "Υπεργενίκευση",
+      "Ανάγνωση σκέψης",
+      "Προφητεία",
+      "Συναισθηματική συλλογιστική",
+      "Πρέπει",
+      "Ταμπέλες",
+      "Προσωποποίηση",
+      "Νοητικό φίλτρο"
+    ],
+    "emotion": [
+      "Χαρά",
+      "Λύπη",
+      "Θυμός",
+      "Φόβος",
+      "Άγχος",
+      "Ηρεμία",
+      "Αγάπη",
+      "Έκπληξη",
+      "Ενθουσιασμός",
+      "Ντροπή",
+      "Ενοχή"
+    ]
+  },
+  "epochs": [
+    {
+      "epoch": 1,
+      "loss": 2.8404,
+      "val": {
+        "sentiment": 0.7083,
+        "emotion": 0.3884,
+        "distortion": 0.6922,
+        "distortion_types": 0.1925,
+        "risk": 0.6595
+      },
+      "val_f1_at_0.5": {
+        "distortion_types": 0.0194,
+        "emotion": 0.2527
+      },
+      "val_average_precision": {
+        "distortion_types": 0.1543,
+        "emotion": 0.3076
+      },
+      "task_loss": {
+        "sentiment": 0.9359,
+        "emotion": 0.7001,
+        "irony": 0.6581,
+        "distortion": 0.6364,
+        "distortion_types": 0.5988,
+        "risk": 0.4079
+      },
+      "val_untrained": {
+        "irony": 1.0
+      },
+      "val_accuracy": {
+        "sentiment": 0.75,
+        "irony": 1.0,
+        "distortion": 0.7097,
+        "risk": 0.8467
+      },
+      "mean": 0.5282,
+      "minutes": 7.4
+    },
+    {
+      "epoch": 2,
+      "loss": 2.1007,
+      "val": {
+        "sentiment": 0.7513,
+        "emotion": 0.4811,
+        "distortion": 0.7594,
+        "distortion_types": 0.3472,
+        "risk": 0.7607
+      },
+      "val_f1_at_0.5": {
+        "distortion_types": 0.3233,
+        "emotion": 0.4751
+      },
+      "val_average_precision": {
+        "distortion_types": 0.2968,
+        "emotion": 0.4645
+      },
+      "task_loss": {
+        "sentiment": 0.5721,
+        "emotion": 0.5701,
+        "irony": 0.4787,
+        "distortion": 0.5514,
+        "distortion_types": 0.4756,
+        "risk": 0.2616
+      },
+      "val_untrained": {
+        "irony": 1.0
+      },
+      "val_accuracy": {
+        "sentiment": 0.7972,
+        "irony": 1.0,
+        "distortion": 0.7602,
+        "risk": 0.9222
+      },
+      "mean": 0.6199,
+      "minutes": 15.5
+    },
+    {
+      "epoch": 3,
+      "loss": 1.4834,
+      "val": {
+        "sentiment": 0.777,
+        "emotion": 0.5254,
+        "distortion": 0.7502,
+        "distortion_types": 0.4092,
+        "risk": 0.7309
+      },
+      "val_f1_at_0.5": {
+        "distortion_types": 0.3973,
+        "emotion": 0.4963
+      },
+      "val_average_precision": {
+        "distortion_types": 0.3483,
+        "emotion": 0.524
+      },
+      "task_loss": {
+        "sentiment": 0.3051,
+        "emotion": 0.4908,
+        "irony": 0.3666,
+        "distortion": 0.3966,
+        "distortion_types": 0.3891,
+        "risk": 0.133
+      },
+      "val_untrained": {
+        "irony": 1.0
+      },
+      "val_accuracy": {
+        "sentiment": 0.8304,
+        "irony": 1.0,
+        "distortion": 0.7546,
+        "risk": 0.8947
+      },
+      "mean": 0.6385,
+      "minutes": 24.1
+    },
+    {
+      "epoch": 4,
+      "loss": 1.0359,
+      "val": {
+        "sentiment": 0.742,
+        "emotion": 0.5383,
+        "distortion": 0.7712,
+        "distortion_types": 0.4039,
+        "risk": 0.7483
+      },
+      "val_f1_at_0.5": {
+        "distortion_types": 0.4261,
+        "emotion": 0.5178
+      },
+      "val_average_precision": {
+        "distortion_types": 0.3655,
+        "emotion": 0.5639
+      },
+      "task_loss": {
+        "sentiment": 0.1405,
+        "emotion": 0.4362,
+        "irony": 0.2799,
+        "distortion": 0.2505,
+        "distortion_types": 0.3057,
+        "risk": 0.0591
+      },
+      "val_untrained": {
+        "irony": 1.0
+      },
+      "val_accuracy": {
+        "sentiment": 0.7883,
+        "irony": 1.0,
+        "distortion": 0.7742,
+        "risk": 0.9153
+      },
+      "mean": 0.6407,
+      "minutes": 32.1
+    },
+    {
+      "epoch": 5,
+      "loss": 0.7514,
+      "val": {
+        "sentiment": 0.7527,
+        "emotion": 0.556,
+        "distortion": 0.7556,
+        "distortion_types": 0.4393,
+        "risk": 0.759
+      },
+      "val_f1_at_0.5": {
+        "distortion_types": 0.4192,
+        "emotion": 0.5314
+      },
+      "val_average_precision": {
+        "distortion_types": 0.3644,
+        "emotion": 0.6011
+      },
+      "task_loss": {
+        "sentiment": 0.0561,
+        "emotion": 0.3878,
+        "irony": 0.2227,
+        "distortion": 0.1397,
+        "distortion_types": 0.2518,
+        "risk": 0.0297
+      },
+      "val_untrained": {
+        "irony": 1.0
+      },
+      "val_accuracy": {
+        "sentiment": 0.8087,
+        "irony": 1.0,
+        "distortion": 0.7602,
+        "risk": 0.9336
+      },
+      "mean": 0.6525,
+      "minutes": 41.0
+    },
+    {
+      "epoch": 6,
+      "loss": 0.5555,
+      "val": {
+        "sentiment": 0.7469,
+        "emotion": 0.5723,
+        "distortion": 0.7512,
+        "distortion_types": 0.4191,
+        "risk": 0.7302
+      },
+      "val_f1_at_0.5": {
+        "distortion_types": 0.4268,
+        "emotion": 0.5573
+      },
+      "val_average_precision": {
+        "distortion_types": 0.3735,
+        "emotion": 0.6194
+      },
+      "task_loss": {
+        "sentiment": 0.0258,
+        "emotion": 0.3371,
+        "irony": 0.1829,
+        "distortion": 0.0608,
+        "distortion_types": 0.2005,
+        "risk": 0.0156
+      },
+      "val_untrained": {
+        "irony": 1.0
+      },
+      "val_accuracy": {
+        "sentiment": 0.8099,
+        "irony": 1.0,
+        "distortion": 0.7532,
+        "risk": 0.9268
+      },
+      "mean": 0.6439,
+      "minutes": 48.3
+    },
+    {
+      "epoch": 7,
+      "loss": 0.423,
+      "val": {
+        "sentiment": 0.7377,
+        "emotion": 0.5758,
+        "distortion": 0.7288,
+        "distortion_types": 0.4034,
+        "risk": 0.757
+      },
+      "val_f1_at_0.5": {
+        "distortion_types": 0.3799,
+        "emotion": 0.566
+      },
+      "val_average_precision": {
+        "distortion_types": 0.3449,
+        "emotion": 0.6278
+      },
+      "task_loss": {
+        "sentiment": 0.0152,
+        "emotion": 0.2863,
+        "irony": 0.118,
+        "distortion": 0.0304,
+        "distortion_types": 0.1544,
+        "risk": 0.003
+      },
+      "val_untrained": {
+        "irony": 1.0
+      },
+      "val_accuracy": {
+        "sentiment": 0.7972,
+        "irony": 1.0,
+        "distortion": 0.7363,
+        "risk": 0.9359
+      },
+      "mean": 0.6405,
+      "minutes": 55.5
+    },
+    {
+      "epoch": 8,
+      "loss": 0.3476,
+      "val": {
+        "sentiment": 0.7433,
+        "emotion": 0.58,
+        "distortion": 0.742,
+        "distortion_types": 0.4065,
+        "risk": 0.7445
+      },
+      "val_f1_at_0.5": {
+        "distortion_types": 0.4253,
+        "emotion": 0.5652
+      },
+      "val_average_precision": {
+        "distortion_types": 0.3645,
+        "emotion": 0.6189
+      },
+      "task_loss": {
+        "sentiment": 0.0043,
+        "emotion": 0.249,
+        "irony": 0.0833,
+        "distortion": 0.0262,
+        "distortion_types": 0.1216,
+        "risk": 0.002
+      },
+      "val_untrained": {
+        "irony": 1.0
+      },
+      "val_accuracy": {
+        "sentiment": 0.8048,
+        "irony": 1.0,
+        "distortion": 0.7447,
+        "risk": 0.9336
+      },
+      "mean": 0.6433,
+      "minutes": 62.7
+    },
+    {
+      "epoch": 9,
+      "loss": 0.2879,
+      "val": {
+        "sentiment": 0.742,
+        "emotion": 0.5812,
+        "distortion": 0.7379,
+        "distortion_types": 0.4316,
+        "risk": 0.7415
+      },
+      "val_f1_at_0.5": {
+        "distortion_types": 0.4085,
+        "emotion": 0.5642
+      },
+      "val_average_precision": {
+        "distortion_types": 0.3614,
+        "emotion": 0.6339
+      },
+      "task_loss": {
+        "sentiment": 0.0069,
+        "emotion": 0.2143,
+        "irony": 0.0905,
+        "distortion": 0.0124,
+        "distortion_types": 0.1004,
+        "risk": 0.0005
+      },
+      "val_untrained": {
+        "irony": 1.0
+      },
+      "val_accuracy": {
+        "sentiment": 0.8061,
+        "irony": 1.0,
+        "distortion": 0.7405,
+        "risk": 0.9359
+      },
+      "mean": 0.6468,
+      "minutes": 70.3
+    },
+    {
+      "epoch": 10,
+      "loss": 0.2514,
+      "val": {
+        "sentiment": 0.7478,
+        "emotion": 0.5794,
+        "distortion": 0.7424,
+        "distortion_types": 0.435,
+        "risk": 0.7466
+      },
+      "val_f1_at_0.5": {
+        "distortion_types": 0.4031,
+        "emotion": 0.5652
+      },
+      "val_average_precision": {
+        "distortion_types": 0.3617,
+        "emotion": 0.6327
+      },
+      "task_loss": {
+        "sentiment": 0.0015,
+        "emotion": 0.1946,
+        "irony": 0.0811,
+        "distortion": 0.0051,
+        "distortion_types": 0.091,
+        "risk": 0.0007
+      },
+      "val_untrained": {
+        "irony": 1.0
+      },
+      "val_accuracy": {
+        "sentiment": 0.8125,
+        "irony": 1.0,
+        "distortion": 0.7461,
+        "risk": 0.9382
+      },
+      "mean": 0.6502,
+      "minutes": 80.8
+    }
+  ],
+  "best": {
+    "epoch": 5,
+    "mean": 0.6525
+  },
+  "thresholds": {
+    "distortion_types": {
+      "Καταστροφολογία": 0.35,
+      "Όλα ή τίποτα": 0.25,
+      "Υπεργενίκευση": 0.55,
+      "Ανάγνωση σκέψης": 0.3,
+      "Προφητεία": 0.65,
+      "Συναισθηματική συλλογιστική": 0.55,
+      "Πρέπει": 0.45,
+      "Ταμπέλες": 0.15,
+      "Προσωποποίηση": 0.55,
+      "Νοητικό φίλτρο": 0.45
+    },
+    "emotion": {
+      "Χαρά": 0.5,
+      "Λύπη": 0.6,
+      "Θυμός": 0.45,
+      "Φόβος": 0.6,
+      "Άγχος": 0.75,
+      "Ηρεμία": 0.55,
+      "Αγάπη": 0.75,
+      "Έκπληξη": 0.4,
+      "Ενθουσιασμός": 0.4,
+      "Ντροπή": 0.7,
+      "Ενοχή": 0.8
+    },
+    "distortion": 0.1
+  },
+  "threshold_micro_f1": {
+    "distortion_types": {
+      "default": 0.4192,
+      "tuned": 0.4393
+    },
+    "emotion": {
+      "default": 0.5314,
+      "tuned": 0.556
+    }
+  },
+  "threshold_macro_f1": {
+    "distortion": {
+      "default": 0.7556,
+      "tuned": 0.7791
+    }
+  },
+  "finished": "2026-10-31T11:20:46",
+  "minutes": 80.8
+}
