@@ -153,7 +153,7 @@ test('CSP χωρίς unsafe-inline και σελίδες χωρίς inline scrip
 
     $pages = [[$guest, 'login'], [$guest, 'register'], [$guest, 'password/forgot'], [$guest, 'no-such-page'],
         [$user->http, 'dashboard'], [$user->http, 'analytics'], [$user->http, 'profile'],
-        [$user->http, 'entry/editor'], [$user->http, 'entry/history'], [$user->http, "entry/{$id}"]];
+        [$user->http, 'entry/editor'], [$user->http, 'entry/history'], [$user->http, 'thoughts'], [$user->http, 'thoughts/new'], [$user->http, 'thoughts/pages'], [$user->http, 'thoughts/about'], [$user->http, "entry/{$id}"]];
     foreach ($pages as [$http, $path]) {
         $html = $http->get($path)->body;
         assert_same(0, preg_match('/<script(?![^>]*\ssrc=)[^>]*>|<style\b|\sstyle=|\son[a-z]+=/i', $html, $m), "/{$path}: " . ($m[0] ?? ''));

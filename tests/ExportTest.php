@@ -18,7 +18,7 @@ test('εξαγωγή δεδομένων: όλα του χρήστη, τίποτ�
     $data = $r->json();
     $keys = array_keys($data);
     sort($keys);
-    assert_same(['daily_messages', 'daily_summaries', 'entity_relations', 'entries', 'exported_at', 'insights', 'profile', 'user', 'words'], $keys);
+    assert_same(['daily_messages', 'daily_summaries', 'entity_relations', 'entries', 'exported_at', 'insights', 'profile', 'thought_records', 'user', 'words'], $keys);
     assert_same($user->email, $data['user']['email']);
     assert_same(false, array_key_exists('password_hash', $data['user']), 'χωρίς password_hash');
     assert_same(false, str_contains($r->body, '$2y$'), 'κανένα bcrypt hash');

@@ -3,6 +3,7 @@ $links = [
     'dashboard'     => 'Αρχική',
     'entry/editor'  => 'Νέα σελίδα',
     'entry/history' => 'Ιστορικό',
+    'thoughts'      => 'Σκέψεις',
     'analytics'     => 'Στατιστικά',
     'profile'       => 'Προφίλ',
 ];

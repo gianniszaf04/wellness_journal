@@ -9,6 +9,7 @@ use App\Middleware\RateLimit;
 use App\Middleware\RateLimitLive;
 use App\Middleware\RateLimitEntries;
 use App\Middleware\RateLimitSpelling;
+use App\Middleware\RateLimitThoughtRecords;
 
 use App\Controllers\HomeController;
 use App\Controllers\AuthController;
@@ -16,9 +17,11 @@ use App\Controllers\DashboardController;
 use App\Controllers\UserController;
 use App\Controllers\EntryController;
 use App\Controllers\AnalyticsController;
+use App\Controllers\ThoughtRecordController;
 use App\Controllers\Api\EntryController as ApiEntryController;
 use App\Controllers\Api\SentimentController  as  ApiSentimentController;
 use App\Controllers\Api\SpellingController as ApiSpellingController;
+use App\Controllers\Api\ThoughtRecordController as ApiThoughtRecordController;
 use App\Controllers\Api\AnalyticsController as ApiAnalyticsController;
 use App\Controllers\Api\InsightController as ApiInsightController;
 use App\Controllers\Api\MessageController as ApiMessageController;
@@ -58,6 +61,11 @@ $router->group(['middleware' => [RequireLogin::class, VerifyCsrf::class]], funct
     $router->get('/entry/history',[EntryController::class,      'history'],     'app.entry.history');
     $router->get('/entry/{id}',   [EntryController::class,      'view'],        'app.entry.view');
     $router->get('/analytics',    [AnalyticsController::class,  'index'],       'app.analytics');
+    $router->get('/thoughts',     [ThoughtRecordController::class, 'index'],    'app.thoughts');
+    $router->get('/thoughts/about', [ThoughtRecordController::class, 'about'],  'app.thoughts.about');
+    $router->get('/thoughts/new', [ThoughtRecordController::class, 'notebook'], 'app.thoughts.new');
+    $router->get('/thoughts/pages', [ThoughtRecordController::class, 'pages'],  'app.thoughts.pages');
+    $router->get('/thoughts/{id}', [ThoughtRecordController::class, 'show'],    'app.thoughts.show');
 
     //Api
     $router->get('/api/entries',              [ApiEntryController::class,  'index'],           'api.entries.index');
@@ -67,6 +75,8 @@ $router->group(['middleware' => [RequireLogin::class, VerifyCsrf::class]], funct
     $router->delete('/api/entries/{id}',     [ApiEntryController::class,'destroy'],           'api.entries.destroy');
     $router->middleware([RateLimitSpelling::class])->post('/api/spelling', [ApiSpellingController::class, 'check'], 'api.spelling.check');
     $router->post('/api/words',               [ApiSpellingController::class, 'keepWord'],      'api.words.store');
+    $router->middleware([RateLimitThoughtRecords::class])->post('/api/thought-records/suggest', [ApiThoughtRecordController::class, 'suggest'], 'api.thoughts.suggest');
+    $router->middleware([RateLimitThoughtRecords::class])->post('/api/thought-records', [ApiThoughtRecordController::class, 'store'], 'api.thoughts.store');
     $router->middleware([RateLimitLive::class])->post('/api/sentiment/live', [ApiSentimentController::class,'analyzeLive'],  'api.sentiment.live');
     $router->get('/api/analytics/mood-trends',[ApiAnalyticsController::class,'getMoodTrends'],'api.analytics.trends');
     $router->get('/api/analytics/emotions',   [ApiAnalyticsController::class,'getEmotionDistribution'],'api.analytics.emotions');

@@ -286,6 +286,35 @@ CONSTRAINT check_user_word_not_empty CHECK (CHAR_LENGTH(TRIM(word)) > 0),
 CONSTRAINT fk_user_words_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS thought_records (
+id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+user_id BIGINT UNSIGNED NOT NULL,
+event VARCHAR(1000) NOT NULL,
+thought VARCHAR(300) NOT NULL,
+thought_mood VARCHAR(300) NULL,
+thought_mood_key VARCHAR(10) NOT NULL,
+emotions JSON NOT NULL,
+model_probability DECIMAL(5,4) NULL,
+model_detected TINYINT(1) NULL,
+model_ranking JSON NULL,
+model_version VARCHAR(100) NULL,
+answers JSON NULL,
+observed_type VARCHAR(50) NULL,
+observation_source VARCHAR(10) NOT NULL,
+response VARCHAR(10) NULL,
+reframe VARCHAR(1000) NULL,
+balanced_thought VARCHAR(300) NULL,
+crisis TINYINT(1) NOT NULL DEFAULT 0,
+created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+KEY idx_thought_records_user (user_id, created_at),
+CONSTRAINT check_thought_record_mood_key CHECK (thought_mood_key IN ('meaning', 'fear', 'others')),
+CONSTRAINT check_thought_record_source CHECK (observation_source IN ('confident', 'asked', 'none', 'declined', 'crisis', 'ai_down')),
+CONSTRAINT check_thought_record_response CHECK (response IS NULL OR response IN ('yes', 'not_now', 'rejected')),
+CONSTRAINT check_thought_record_crisis CHECK (crisis IN (0, 1)),
+CONSTRAINT fk_thought_records_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- ποια migrations εχουν τρεξει (database/migrate.php)
 CREATE TABLE IF NOT EXISTS schema_migrations (
 migration VARCHAR(255) PRIMARY KEY,
@@ -301,7 +330,8 @@ INSERT IGNORE INTO schema_migrations (migration) VALUES
 ('005_add_email_verification.sql'),
 ('006_generalize_verification_codes.sql'),
 ('007_add_irony_distortion_detected.sql'),
-('008_add_user_words.sql');
+('008_add_user_words.sql'),
+('009_add_thought_records.sql');
 
 
 

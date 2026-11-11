@@ -5,6 +5,7 @@ declare(strict_types=1);
 // Η απαντηση βγαινει απο το κειμενο: "SCORE=-0.8 EMO=Λύπη EMOS=Λύπη,Άγχος ENT=Μαρία,Νίκος IRONY=0.8 DIST=0.3
 // TYPES=Καταστροφολογία RISK=0.6". Το POST /spelling απαντα μονο με τα SPELL=πεπατημα>περπάτημα|πατήματα,πηγασπιτι>πήγα_σπίτι
 // (_ = κενο), με θεσεις σε χαρακτηρες και χωρις τα known_words. BADPROB -> irony/distortion/risk με μη αριθμητικη πιθανοτητα.
+// TYPEP=Ταμπέλες:0.95,Ανάγνωση_σκέψης:0.5 -> αυτα τα type_probabilities (_ = κενο) αντι για τα 0.9, 0.8, ... των TYPES.
 // Προεπιλογη: εκπαιδευμενο μοντελο σε ολα τα tasks. UNTRAINED -> model_trained=false,
 // TRAINED=sentiment,emotion -> εκπαιδευμενα μονο αυτα.
 
@@ -34,6 +35,9 @@ foreach (['IRONY' => 'irony', 'DIST' => 'distortion', 'RISK' => 'risk'] as $key 
     $probability = $find($key, '-?[\d.]+');
     if ($probability !== null) {
         $analysis[$task] = ['probability' => (float) $probability];
+        if ($task !== 'risk' && (float) $probability >= 0 && (float) $probability <= 1) {
+            $analysis[$task]['detected'] = (float) $probability > 0.5;
+        }
     } elseif (str_contains($text, 'BADPROB')) {
         $analysis[$task] = ['probability' => 'high'];
     }
@@ -47,6 +51,13 @@ if (isset($analysis['distortion'])) {
         static fn (int $i): float => round(0.9 - 0.1 * $i, 1),
         array_keys($types)
     ));
+    if (($pairs = $find('TYPEP', '\S+')) !== null) {
+        $analysis['distortion']['type_probabilities'] = [];
+        foreach (explode(',', $pairs) as $pair) {
+            [$type, $probability] = array_pad(explode(':', $pair, 2), 2, '0');
+            $analysis['distortion']['type_probabilities'][str_replace('_', ' ', $type)] = (float) $probability;
+        }
+    }
 }
 
 $spelling = [];
@@ -75,6 +86,7 @@ echo json_encode([
         $list('ENT')
     ),
     'analysis' => $analysis,
+    'model_version' => 'mtl-greekbert-v2-fake',
     'model_trained' => !str_contains($text, 'UNTRAINED'),
     'trained_tasks' => str_contains($text, 'UNTRAINED') ? []
         : ($list('TRAINED') ?: ['sentiment', 'emotion', 'irony', 'distortion', 'distortion_types', 'risk']),
