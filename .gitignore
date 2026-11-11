@@ -16,3 +16,7 @@ Python/data/recheck/
 Python/data/annotation/check_set.csv
 Python/training/train.csv
 Python/mtl_config.json
+
+# πειραματα: αρχεια με κειμενα των datasets και πηγες που κατεβαινουν
+Python/experiments/*/output/
+Python/experiments/spelling/data/

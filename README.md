@@ -124,8 +124,8 @@ wellness_journal/
   public/            index.php (το μόνο σημείο εισόδου), assets/
   database/          schema.sql, seed.sql, create_user.sql, migrations/, migrate.php
   Python/
-    main.py          FastAPI service (/analyze, /health)
-    model_architecture.py, labels.py, ner_service.py
+    main.py          FastAPI service (/analyze, /spelling, /health)
+    model_architecture.py, labels.py, ner_service.py, spelling_service.py
     built_dataset.py γραμμές από το log της επαλήθευσης OpenAI -> training/dataset_auto.csv
     data/            προετοιμασία, μετάφραση, έλεγχος labels, συνθετικά κείμενα, merge
       annotation/    οδηγός labels, οδηγίες συγγραφής, πρότυπο του test set, labels του σετ ελέγχου
@@ -231,6 +231,8 @@ curl http://127.0.0.1:8000/health
 | `NER_ENABLED`   | `0` = χωρίς NER                               | `1`                            |
 | `NER_MODEL`     | Μοντέλο του spaCy                             | `el_core_news_md`              |
 | `NER_LEMMATIZE` | `0` = τα ονόματα μένουν όπως γράφτηκαν         | `1`                            |
+| `SPELLING_ENABLED` | `0` = χωρίς προτάσεις ορθογραφίας          | `1`                            |
+| `SPELLING_DIR`  | Λεξικό ορθογραφίας (`experiments/spelling/build_dictionary.py`) | `experiments/spelling/output` |
 | `OPENAI_MODEL`  | Μοντέλο για το `OPENAI_VERIFY`                | `gpt-4o-mini`                  |
 | `VERIFY_LOG`    | Αρχείο για τα αποτελέσματα του `OPENAI_VERIFY` | `../storage/ai_verification.jsonl` |
 | `GEMINI_API_KEY`| Μόνο για τα script των δεδομένων              |                                |
@@ -266,7 +268,14 @@ curl http://127.0.0.1:8000/health
 **Endpoints:**
 
 - `GET /health`: κατάσταση, αν φορτώθηκαν βάρη, ποια tasks είναι εκπαιδευμένα, συσκευή (CPU, CUDA, MPS)
-- `POST /analyze` με σώμα `{"text": "..."}`: πλήρης ανάλυση και οντότητες
+- `POST /analyze` με σώμα `{"text": "...", "known_words": [...]}`: πλήρης ανάλυση, οντότητες, και έως 5 λέξεις με
+  προτάσεις ορθογραφίας (`spelling`). Το `known_words` είναι προαιρετικό: οι λέξεις του προσωπικού λεξικού
+- `POST /spelling` με το ίδιο σώμα: μόνο οι προτάσεις ορθογραφίας, χωρίς μοντέλο, έως 50 λέξεις, για την ώρα που
+  γράφει ο χρήστης
+
+**Ορθογραφία:** το τελικό `σ` γίνεται `ς` μόνο του, στο κείμενο που πάει στο μοντέλο. Οι άλλες λέξεις που λείπουν από το
+λεξικό παίρνουν έως 3 προτάσεις, με τόνους, και διαλέγει ο χρήστης. Το λεξικό (elspell και συχνότητες από υπότιτλους)
+φτιάχνεται με το `experiments/spelling/build_dictionary.py`. Λεπτομέρειες στο `experiments/spelling/README.md`.
 
 **Χωρίς βάρη:** χωρίς αρχείο βαρών (`mtl_model.pt`) η υπηρεσία λειτουργεί, αλλά οι προβλέψεις είναι τυχαίες. Το PHP τις απορρίπτει, εκτός αν `AI_ALLOW_UNTRAINED=1`.
 

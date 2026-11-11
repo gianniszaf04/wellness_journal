@@ -1,5 +1,7 @@
+import hashlib
 import json
 import os
+import re
 import threading
 import time
 from contextlib import asynccontextmanager
@@ -15,6 +17,7 @@ from transformers import AutoTokenizer
 
 from model_architecture import WellnessMTLModel, MODEL_NAME, MODEL_REVISION, pick_device
 from ner_service import extract_entities, load_ner
+from spelling_service import MAX_LIVE_WORDS, load_spelling, suggest_spelling
 from labels import (
     SENTIMENT_LABELS,
     SENTIMENT_WEIGHTS,
@@ -35,12 +38,15 @@ CONFIG_PATH = os.getenv("CONFIG_PATH", os.path.join(os.path.dirname(WEIGHTS_PATH
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 VERIFY_LOG = os.getenv("VERIFY_LOG", os.path.join("..", "storage", "ai_verification.jsonl"))
 NER_ENABLED = os.getenv("NER_ENABLED", "1") != "0"
+SPELLING_ENABLED = os.getenv("SPELLING_ENABLED", "1") != "0"
 # Επαληθευση μεσω OpenAI μονο οταν ενεργοποιηθει ρητα (default: κλειστη)
 OPENAI_VERIFY = os.getenv("OPENAI_VERIFY", "0") == "1"
 MAX_LEN = 128
 CHUNK_STRIDE = 32
 MAX_CHUNKS = 32
 BINARY_TASKS = ("irony", "distortion", "risk")
+MODEL_VERSION = "mtl-greekbert-v2"
+FINAL_SIGMA = re.compile(r"(?<=[α-ωάέήίόύώϊϋΐΰΑ-ΩΆΈΉΊΌΎΏΪΫ])[σΣ](?![\w'’ʼ‘])")
 
 
 device = pick_device()
@@ -66,6 +72,14 @@ def _trained() -> tuple[set, dict, dict]:
     return set(config.get("trained_tasks", [])), config.get("trained_labels", {}), config.get("thresholds", {})
 
 
+def weights_fingerprint(path: str) -> str:
+    digest = hashlib.sha256()
+    with open(path, "rb") as f:
+        for block in iter(lambda: f.read(1 << 20), b""):
+            digest.update(block)
+    return digest.hexdigest()[:12]
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     ml["tokenizer"] = AutoTokenizer.from_pretrained(MODEL_NAME, revision=MODEL_REVISION)
@@ -74,12 +88,15 @@ async def lifespan(app: FastAPI):
     ml["trained_tasks"] = set()
     ml["trained_labels"] = {}
     ml["thresholds"] = {}
+    ml["model_version"] = f"{MODEL_VERSION}-untrained"
     if os.path.exists(WEIGHTS_PATH):
         try:
             model.load_state_dict(torch.load(WEIGHTS_PATH, map_location=device, weights_only=True))
             ml["trained"] = True
             ml["trained_tasks"], ml["trained_labels"], ml["thresholds"] = _trained()
-            print(f"[+] Loaded trained weights: {WEIGHTS_PATH} (tasks: {sorted(ml['trained_tasks'])})")
+            ml["model_version"] = f"{MODEL_VERSION}-{weights_fingerprint(WEIGHTS_PATH)}"
+            print(f"[+] Loaded trained weights: {WEIGHTS_PATH} (tasks: {sorted(ml['trained_tasks'])}, "
+                  f"version: {ml['model_version']})")
         except RuntimeError as e:
             # βαρη απο παλια αρχιτεκτονικη (π.χ. πριν τα MLP heads) -> θελει νεο training
             print(f"[!] WARNING: '{WEIGHTS_PATH}' does not match the model, retrain it - running on un-trained heads. ({e})")
@@ -93,6 +110,8 @@ async def lifespan(app: FastAPI):
 
     if NER_ENABLED:
         load_ner()
+    if SPELLING_ENABLED:
+        load_spelling()
     yield
     ml.clear()
 
@@ -101,6 +120,7 @@ app = FastAPI(title="Wellness MTL Service", version="1.1" , lifespan=lifespan)
 
 class AnalyzeRequest(BaseModel):
     text: str = Field(..., min_length=1, max_length=10000)
+    known_words: list[str] = Field(default_factory=list, max_length=5000)
 
 def _round_score(x:float) -> float:
     return max(-1.0, min(1.0, round(x, 4)))
@@ -125,7 +145,7 @@ def _detected(task: str, p) -> bool:
 @torch.no_grad()
 def run_mtl(text: str) -> dict:
     enc = ml["tokenizer"](
-        text, truncation=True, padding="max_length",
+        FINAL_SIGMA.sub("ς", text), truncation=True, padding="max_length",
         max_length=MAX_LEN, stride=CHUNK_STRIDE,
         return_overflowing_tokens=True, return_tensors="pt",
     )
@@ -264,8 +284,10 @@ def health():
     return {
         "status": "ok",
         "weights_loaded": ml.get("trained", False),
+        "model_version": ml.get("model_version"),
         "trained_tasks": sorted(ml.get("trained_tasks", [])),
         "ner_enabled": NER_ENABLED,
+        "spelling_enabled": SPELLING_ENABLED,
         "openai_verify": OPENAI_VERIFY,
         "device": str(device),
     }
@@ -284,13 +306,21 @@ def analyze(req: AnalyzeRequest, background_tasks: BackgroundTasks):
         "sentiment_score": result["sentiment_score"],
         "dominant_emotion": result["dominant_emotion"],
         "emotions": result["tasks"]["emotion"]["labels"],
-        "entities": entities,         
+        "entities": entities,
+        "spelling": suggest_spelling(req.text, req.known_words) if SPELLING_ENABLED else [],
         "analysis": result["tasks"],
         "chunks": result["chunks"],
-        "model_version": "mtl-greekbert-v2",
+        "model_version": ml["model_version"],
         # το PHP κραταει μονο τα tasks που εκπαιδευτηκαν, τα υπολοιπα ειναι τυχαια
         "model_trained": ml.get("trained", False),
         "trained_tasks": sorted(ml.get("trained_tasks", [])),
+    }
+
+@app.post("/spelling")
+def spelling(req: AnalyzeRequest):
+    return {
+        "success": True,
+        "spelling": suggest_spelling(req.text, req.known_words, MAX_LIVE_WORDS) if SPELLING_ENABLED else [],
     }
 
 # Εκκινηση: python main.py -> ακουει μονο τοπικα (127.0.0.1), ποτε σε ολο το δικτυο
