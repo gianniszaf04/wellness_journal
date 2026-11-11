@@ -28,10 +28,17 @@ test('AiClient::scored: label με την πιθανότητά του, null αν
     assert_same([], AiClient::scored('Λύπη', ['Λύπη' => 0.9]), 'όχι λίστα');
 });
 
-test('AiClient::detected: πάνω από 0.5, όπως το argmax του μοντέλου', function (): void {
-    assert_same(false, AiClient::detected(0.5));
-    assert_same(true, AiClient::detected(0.5001));
-    assert_same(null, AiClient::detected(null));
+test('AiClient::detected: το detected που στέλνει το μοντέλο, null αν λείπει ή δεν είναι boolean', function (): void {
+    $data = ['analysis' => [
+        'irony' => ['probability' => 0.9, 'detected' => true],
+        'distortion' => ['probability' => 0.9, 'detected' => false],
+        'risk' => ['probability' => 0.9],
+    ]];
+    assert_same(true, AiClient::detected($data, 'irony'));
+    assert_same(false, AiClient::detected($data, 'distortion'), 'δεν το βγάζει από την πιθανότητα');
+    assert_same(null, AiClient::detected($data, 'risk'), 'χωρίς detected');
+    assert_same(null, AiClient::detected(['analysis' => ['irony' => ['detected' => 1]]], 'irony'), 'όχι boolean');
+    assert_same(null, AiClient::detected([], 'irony'), 'χωρίς analysis');
 });
 
 test('query_int κρατά την προεπιλογή όταν λείπει ή είναι εκτός ορίων', function (): void {
