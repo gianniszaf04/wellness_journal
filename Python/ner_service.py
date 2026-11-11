@@ -1,8 +1,14 @@
-import os 
+import os
+import re
+
+from spelling_service import SPELLING_DIR, WORD, final_sigma, normalize
 
 _NLP = None
+_PROPERS = None
+SPACES = re.compile(r"[^\S\n]+")
 NER_MODEL = os.getenv("NER_MODEL", "el_core_news_md")
 NER_LEMMATIZER = os.getenv("NER_LEMMATIZE", "1") != "0"
+NER_TRUECASE = os.getenv("NER_TRUECASE", "0") != "0"
 
 
 LABEL_MAPPING = {
@@ -35,6 +41,25 @@ def load_ner():
     return _NLP or None
 
 
+def load_propers() -> dict:
+    global _PROPERS
+    if _PROPERS is None:
+        path = os.path.join(SPELLING_DIR, "propers.tsv")
+        try:
+            with open(path, encoding="utf-8") as f:
+                _PROPERS = dict(line.rstrip("\n").split("\t") for line in f if "\t" in line)
+            print(f"[+] NER truecase: {len(_PROPERS)} proper names")
+        except OSError as e:
+            print(f"[!] NER truecase off ({path}): {e}")
+            _PROPERS = {}
+    return _PROPERS
+
+
+def truecase(text: str) -> str:
+    propers = load_propers()
+    return WORD.sub(lambda m: propers.get(final_sigma(normalize(m.group(0))), m.group(0)), text) if propers else text
+
+
 def _normalize_name(ent) -> str:
     if not NER_LEMMATIZER:
         return " ".join(ent.text.split()).strip()
@@ -57,18 +82,19 @@ def _normalize_name(ent) -> str:
     return name
 
 
-def extract_entities(text: str) -> list[dict]:
+def extract_entities(text: str, truecased: bool = NER_TRUECASE) -> list[dict]:
     nlp = load_ner()
     if nlp is None:
         return []
-    
+
     try:
-        doc = nlp(text)
+        text = SPACES.sub(" ", text)
+        doc = nlp(truecase(text) if truecased else text)
 
         out, seen = [], set()
         for ent in doc.ents:
             etype=LABEL_MAPPING.get(ent.label_)
-            if etype is None:
+            if etype is None or (truecased and not ent.text[:1].isupper()):
                 continue
 
             name = _normalize_name(ent)[:MAX_NAME_LEN]
