@@ -3,18 +3,15 @@ declare(strict_types=1);
 namespace App\Controllers\Api;
 
 use App\Models\Entry;
-use App\Models\Emotion;
 use App\Models\EmotionEntityRelation;
 use App\Models\EntryEntity;
-use App\Models\EntryLabel;
 use App\Models\DailySummary;
 use App\Models\MotivationalMessage;
 use App\Models\DailyMessage;
 use App\Models\Insight;
-use App\Models\UserWord;
 use App\Core\Request;
-use App\Services\AiClient;
 use App\Services\CrisisSupport;
+use App\Services\EntryAnalysis;
 
 class EntryController
 {
@@ -50,7 +47,7 @@ class EntryController
         }
 
         [$sentimentScore, $dominantEmotionId, $emotionConfidence, $aiAvailable, $riskProbability] =
-            $this->analyzeAndPersist($id, $userId, $body, $entryDate, false);
+            (new EntryAnalysis())->run($id, $userId, $body, $entryDate, false);
         $support = CrisisSupport::forEntry($body, $riskProbability, $sentimentScore, $this->warningThreshold());
 
         try {
@@ -115,139 +112,6 @@ class EntryController
         if (mb_strlen($body) > self::MAX_BODY_LENGTH) {
             json_response(['success' => false, 'error' => 'Το κείμενο ξεπερνά τους ' . self::MAX_BODY_LENGTH . ' χαρακτήρες.'], 422);
         }
-    }
-
-    /**
-     * Καλει το AI service και κανει persist: sentiment/emotion στην εγγραφη,
-     * (επανα)δημιουργια entities, emotions/distortion types, relations και daily summary.
-     * Επιστρεφει [?float sentimentScore, ?int dominantEmotionId, ?float emotionConfidence, bool aiAvailable, ?float riskProbability].
-     *
-     * @param bool $replaceEntities Σε edit (true): σβηνει & ξαναγραφει τα entities.
-     */
-    private function analyzeAndPersist(int $id, int $userId, string $body, string $entryDate, bool $replaceEntities): array
-    {
-        $sentimentScore = null;
-        $dominantEmotionId = null;
-        $emotionConfidence = null;
-        $entities = [];
-        $aiData = null;
-        $ironyProbability = null;
-        $distortionProbability = null;
-        $ironyDetected = null;
-        $distortionDetected = null;
-        $riskProbability = null;
-        $emotions = [];
-        $distortionTypes = [];
-
-        try {
-            $aiData = (new AiClient())->analyze($body, (new UserWord())->allForUser($userId));
-
-            if ($aiData !== null) {
-                // score 0 ειναι εγκυρο ουδετερο -> το διακρινουμε απο "λειπει το πεδιο"
-                $sentimentScore = isset($aiData['sentiment_score']) ? (float) $aiData['sentiment_score'] : null;
-
-                $emotionName = $aiData['dominant_emotion'] ?? null;
-                if ($emotionName) {
-                    $emotion = (new Emotion())->findByName($emotionName);
-                    if ($emotion) {
-                        $dominantEmotionId = (int) $emotion['id'];
-                        // confidence = πιθανοτητα του μοντελου για το dominant emotion
-                        $prob = $aiData['analysis']['emotion']['probabilities'][$emotionName] ?? null;
-                        $emotionConfidence = $prob !== null ? (float) $prob : null;
-                    }
-                }
-
-                $entities = $aiData['entities'] ?? [];
-                $ironyProbability = AiClient::probability($aiData, 'irony');
-                $distortionProbability = AiClient::probability($aiData, 'distortion');
-                $ironyDetected = AiClient::detected($aiData, 'irony');
-                $distortionDetected = AiClient::detected($aiData, 'distortion');
-                $riskProbability = AiClient::probability($aiData, 'risk');
-                $emotions = AiClient::scored($aiData['emotions'] ?? null, $aiData['analysis']['emotion']['probabilities'] ?? null);
-                $distortionTypes = AiClient::scored(
-                    $aiData['analysis']['distortion']['types'] ?? null,
-                    $aiData['analysis']['distortion']['type_probabilities'] ?? null
-                );
-            }
-        } catch (\Exception $e) {
-            error_log('AI Service Error: ' . $e->getMessage());
-        }
-
-        $db = null;
-        try {
-            $db = (new \Database())->getConnection();
-            $db->beginTransaction();
-
-            // σε edit γραφουμε παντα, ωστε αν το AI ειναι κατω να μη μεινει η αναλυση του παλιου κειμενου
-            if ($replaceEntities || $sentimentScore !== null || $dominantEmotionId !== null) {
-                $stmt = $db->prepare(
-                    'UPDATE entries SET sentiment_score = :sentiment, dominant_emotion_id = :emotion,
-                    irony_probability = :irony, distortion_probability = :distortion,
-                    irony_detected = :irony_detected, distortion_detected = :distortion_detected
-                    WHERE id = :id AND user_id = :user_id'
-                );
-
-                $stmt->execute([
-                    ':sentiment' => $sentimentScore,
-                    ':emotion' => $dominantEmotionId,
-                    ':irony' => $ironyProbability,
-                    ':distortion' => $distortionProbability,
-                    ':irony_detected' => $ironyDetected === null ? null : (int) $ironyDetected,
-                    ':distortion_detected' => $distortionDetected === null ? null : (int) $distortionDetected,
-                    ':id' => $id,
-                    ':user_id' => $userId
-                ]);
-            }
-
-            if ($replaceEntities || $emotions !== [] || $distortionTypes !== []) {
-                (new EntryLabel())->replace($id, $emotions, $distortionTypes);
-            }
-
-            if ($replaceEntities || !empty($entities)) {
-                $entryEntityModel = new EntryEntity();
-                $previous = [];
-
-                if ($replaceEntities) {
-                    $previous = $entryEntityModel->findForEntry($id);
-                    $entryEntityModel->deleteForEntry($id);
-                }
-
-                $entitiesToInsert = [];
-                foreach ($entities as $entity) {
-                    if (isset($entity['name'], $entity['type'])) {
-                        $entitiesToInsert[] = [
-                            'name' => $entity['name'],
-                            'type' => $entity['type']
-                        ];
-                    }
-                }
-
-                if (!$entryEntityModel->createBatch($id, $entitiesToInsert)) {
-                    throw new \RuntimeException('EntryEntity::createBatch failed');
-                }
-
-                // και τα παλια entities, για να βγει απο τα relations ο,τι δεν αναφερεται πια
-                (new EmotionEntityRelation())->recalculate(
-                    $userId,
-                    array_merge($previous, $entryEntityModel->findForEntry($id))
-                );
-            }
-
-            $db->commit();
-        } catch (\Exception $e) {
-            if ($db !== null && $db->inTransaction()) {
-                $db->rollBack();
-            }
-            error_log('Entry analysis persist error: ' . $e->getMessage());
-        }
-
-        try {
-            (new DailySummary())->recalculate($userId, $entryDate);
-        } catch (\Exception $e) {
-            error_log('Daily summary recalculation error: ' . $e->getMessage());
-        }
-
-        return [$sentimentScore, $dominantEmotionId, $emotionConfidence, $aiData !== null, $riskProbability];
     }
 
     private function warningThreshold(): float
@@ -329,7 +193,7 @@ class EntryController
 
         // Ξανατρεχουμε AI ωστε sentiment/emotion/entities/summary να μην μεινουν stale απο το παλιο κειμενο
         $entryDate = (string) ($existing['entry_date'] ?? date('Y-m-d'));
-        [$sentimentScore, , , $aiAvailable, $riskProbability] = $this->analyzeAndPersist($entryId, $userId, $body, $entryDate, true);
+        [$sentimentScore, , , $aiAvailable, $riskProbability] = (new EntryAnalysis())->run($entryId, $userId, $body, $entryDate, true);
         $support = CrisisSupport::forEntry($body, $riskProbability, $sentimentScore, $this->warningThreshold());
 
         $entry = $this->entryModel->findByIdForUser($entryId, $userId);
