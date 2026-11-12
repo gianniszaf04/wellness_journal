@@ -39,7 +39,7 @@ class AuthController {
         $password=$request->input('password','');
 
         if($username ==='' || $name ==='' || $email === '' || $password === '') {
-            $this->redirectWithError('/register','Ολα τα πεδία είναι υποχρεωτικά.');
+            $this->redirectWithError('/register','Όλα τα πεδία είναι υποχρεωτικά.');
             return;
         }
 
@@ -69,12 +69,12 @@ class AuthController {
         $this->userModel->purgeUnverified();
 
         if($this->userModel->emailExists($email)) {
-            $this->redirectWithError('/register','Το email χρησιμοποιείται ήδη');
+            $this->redirectWithError('/register','Το email χρησιμοποιείται ήδη.');
             return;
         }
 
         if ($this->userModel->usernameExists($username)) {
-            $this->redirectWithError('/register','To username χρησιμοποιειται ήδη.');
+            $this->redirectWithError('/register','Το username χρησιμοποιείται ήδη.');
             return;
         }
 
@@ -99,7 +99,7 @@ class AuthController {
         $password=$request->input('password' , '');
 
         if($email === '' || $password === '') {
-            $this->redirectWithError('/login', 'Συμπλήρωσε email και κωδίκο');
+            $this->redirectWithError('/login', 'Συμπλήρωσε email και κωδικό.');
             return;
         }
 
@@ -111,7 +111,7 @@ class AuthController {
         // και οταν δεν υπαρχει το email τρεχει password_verify, ωστε ο χρονος να μη δειχνει ποια emails υπαρχουν
         $hash = $user['password_hash'] ?? self::DUMMY_HASH;
         if(!password_verify($password, $hash) || $user === null) {
-            $this->redirectWithError('/login' , 'Λαθος email ή κωδικός');
+            $this->redirectWithError('/login' , 'Λάθος email ή κωδικός.');
             return;
         }
 

@@ -22,7 +22,7 @@ class VerifyCsrf {
         if (str_contains($uri, '/api/')) {
             http_response_code(403);
             header('Content-type: application/json; charset=utf-8');
-            echo json_encode(['success'=> false, 'error'=>'Άκυρο ή ληγμενο Csrf token'],JSON_UNESCAPED_UNICODE);
+            echo json_encode(['success'=> false, 'error'=>'Άκυρο ή ληγμένο CSRF token'],JSON_UNESCAPED_UNICODE);
         }else {
             error_page(403, 'Η σελίδα έμεινε ανοιχτή για πολλή ώρα ή άνοιξε σε άλλη καρτέλα. Ανανέωσέ τη και δοκίμασε ξανά.', 'Η σελίδα έληξε');
         }

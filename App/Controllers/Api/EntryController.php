@@ -61,7 +61,7 @@ class EntryController
                 $insightModel->create(
                     $userId,
                     Insight::TYPE_WARNING,
-                    'Ανιχνεύθηκε πολύ χαμηλή συναισθηματική κατάσταση. Πάρε ανάσες προσπάθησε να ηρεμήσεις και φρόντισε τον εαυτό σου.',
+                    'Ανιχνεύθηκε πολύ χαμηλή συναισθηματική κατάσταση. Πάρε ανάσες, προσπάθησε να ηρεμήσεις και φρόντισε τον εαυτό σου.',
                     null,
                     $dominantEmotionId !== null ? (string) $dominantEmotionId : null,
                     $emotionConfidence,
