@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 // Χωρις server: καλουν τον κωδικα κατευθειαν.
 
+use App\Core\Crypt;
 use App\Core\Router;
 use App\Middleware\RateLimit;
 use App\Services\AiClient;
@@ -119,4 +120,44 @@ test('AiClient::withoutHiddenEmotions βγάζει την Κούραση και 
     $plain = ['dominant_emotion' => 'Χαρά', 'emotions' => ['Χαρά'], 'analysis' => ['emotion' => ['probabilities' => ['Χαρά' => 0.9]]]];
     assert_same($plain, AiClient::withoutHiddenEmotions($plain), 'χωρίς Κούραση: ίδιο');
     assert_same([], AiClient::withoutHiddenEmotions([]), 'άδειο');
+});
+
+test('Crypt: κρυπτογραφεί με τυχαίο nonce, διαβάζει παλιό απλό κείμενο, απορρίπτει αλλαγμένο', function (): void {
+    $text = 'Σήμερα μίλησα με τη Μαρία. 🙂';
+    $a = Crypt::encrypt($text);
+    $b = Crypt::encrypt($text);
+
+    assert_true(Crypt::isEncrypted($a) && !str_contains($a, 'Μαρία'), 'δεν φαίνεται το κείμενο');
+    assert_true($a !== $b, 'άλλο αποτέλεσμα κάθε φορά');
+    assert_same([$text, $text], [Crypt::decrypt($a), Crypt::decrypt($b)]);
+    assert_same('', Crypt::decrypt(Crypt::encrypt('')), 'άδειο κείμενο');
+    assert_same($text, Crypt::decrypt($text), 'παλιά γραμμή χωρίς κρυπτογράφηση');
+    assert_same(null, Crypt::encryptNullable(null));
+    assert_same(['body' => $text, 'other' => $a, 'empty' => null], Crypt::decryptColumns(['body' => $a, 'other' => $a, 'empty' => null], ['body', 'empty']));
+
+    $raw = base64_decode(substr($a, strlen(Crypt::PREFIX)));
+    $raw[strlen($raw) - 1] = $raw[strlen($raw) - 1] === 'x' ? 'y' : 'x';
+    $failed = [];
+    foreach ([Crypt::PREFIX . base64_encode($raw), Crypt::PREFIX . 'όχι base64', Crypt::PREFIX . base64_encode('κοντό')] as $bad) {
+        try {
+            Crypt::decrypt($bad);
+            $failed[] = false;
+        } catch (RuntimeException) {
+            $failed[] = true;
+        }
+    }
+    assert_same([true, true, true], $failed, 'αλλαγμένο ή κατεστραμμένο');
+
+    $key = (string) getenv('APP_KEY');
+    putenv('APP_KEY=' . Crypt::generateKey());
+    try {
+        Crypt::decrypt($a);
+        $wrongKey = false;
+    } catch (RuntimeException) {
+        $wrongKey = true;
+    } finally {
+        putenv("APP_KEY={$key}");
+    }
+    assert_true($wrongKey, 'άλλο κλειδί δεν διαβάζει');
+    assert_same($text, Crypt::decrypt($a), 'το κλειδί επανήλθε');
 });

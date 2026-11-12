@@ -43,12 +43,17 @@ class EntryController
         $mood = query_int('mood', 0, 0, 5);
         $perPage = 20;
 
-        $total = $this->entryModel->countHistory($userId, $search, $mood);
+        $matches = $search !== '' ? $this->entryModel->searchHistory($userId, $search, $mood) : null;
+        $total = $matches !== null ? count($matches) : $this->entryModel->countHistory($userId, $mood);
         $pages = max(1, (int) ceil($total / $perPage));
         $page = min(query_int('page', 1, 1, PHP_INT_MAX), $pages);
+        $offset = ($page - 1) * $perPage;
+        $entries = $matches !== null
+            ? array_slice($matches, $offset, $perPage)
+            : $this->entryModel->historyForUser($userId, $mood, $perPage, $offset);
 
         $months = [];
-        foreach ($this->entryModel->historyForUser($userId, $search, $mood, $perPage, ($page - 1) * $perPage) as $entry) {
+        foreach ($entries as $entry) {
             $ts = strtotime((string) $entry['entry_date']);
             $key = date('Y-m', $ts);
             $months[$key]['label'] ??= greek_month((int) date('n', $ts)) . ' ' . date('Y', $ts);

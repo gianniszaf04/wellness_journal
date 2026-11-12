@@ -2,10 +2,17 @@
 declare(strict_types=1);
 namespace App\Models;
 
+use App\Core\Crypt;
 use Database;
 use PDO;
 
 class Entry{
+    private const ENCRYPTED = ['body'];
+    private const ACCENTS = [
+        'ά' => 'α', 'έ' => 'ε', 'ή' => 'η', 'ί' => 'ι', 'ό' => 'ο', 'ύ' => 'υ', 'ώ' => 'ω',
+        'ϊ' => 'ι', 'ϋ' => 'υ', 'ΐ' => 'ι', 'ΰ' => 'υ', 'ς' => 'σ',
+    ];
+
     private PDO $db;
 
     public function __construct(){
@@ -29,7 +36,7 @@ class Entry{
                 ');
             $stmt->execute([
                 ':user_id' =>$userId,
-                ':body' => $body,
+                ':body' => Crypt::encrypt($body),
                 ':entry_date' => $entryDate,
             ]);
             return (int) $this->db->lastInsertId();
@@ -52,7 +59,7 @@ class Entry{
             LIMIT 1');
             $stmt->execute([':id' => $id, ':user_id' => $userId]);
             $entry = $stmt->fetch(PDO::FETCH_ASSOC);
-            return $entry ? (new EntryLabel())->attach([$entry])[0] : null;
+            return $entry ? (new EntryLabel())->attach([Crypt::decryptColumns($entry, self::ENCRYPTED)])[0] : null;
     }
 
     public function update(int $id, int $userId,  string $body):bool {
@@ -65,7 +72,7 @@ class Entry{
             'UPDATE entries SET body = :body, updated_at = CURRENT_TIMESTAMP
             WHERE id =:id  AND  user_id = :user_id');
         return $stmt->execute([
-            ':body' =>$body,
+            ':body' => Crypt::encrypt($body),
             ':id' => $id,
             ':user_id' => $userId,
         ]);
@@ -105,7 +112,7 @@ class Entry{
         $stmt->bindValue(':off', $offset, PDO::PARAM_INT);
         $stmt->execute();
 
-        return (new EntryLabel())->attach($stmt->fetchAll(PDO::FETCH_ASSOC));
+        return (new EntryLabel())->attach(Crypt::decryptRows($stmt->fetchAll(PDO::FETCH_ASSOC), self::ENCRYPTED));
     }
 
     private const MOOD_RANGES = [
@@ -116,40 +123,50 @@ class Entry{
         1 => 'e.sentiment_score <= -0.6',
     ];
 
-    private function historyFilter(int $userId, string $search, int $mood): array {
+    private function historyFilter(int $userId, int $mood): array {
         $where = ['e.user_id = :user_id'];
         $params = [':user_id' => $userId];
-        if ($search !== '') {
-            $where[] = 'e.body LIKE :search';
-            $params[':search'] = '%' . addcslashes($search, '%_\\') . '%';
-        }
         if (isset(self::MOOD_RANGES[$mood])) {
             $where[] = self::MOOD_RANGES[$mood];
         }
         return [implode(' AND ', $where), $params];
     }
 
-    public function historyForUser(int $userId, string $search, int $mood, int $limit, int $offset) : array {
-        [$where, $params] = $this->historyFilter($userId, $search, $mood);
+    public function historyForUser(int $userId, int $mood, ?int $limit = null, int $offset = 0) : array {
+        [$where, $params] = $this->historyFilter($userId, $mood);
         $stmt = $this->db->prepare(
             "SELECT e.id, e.body, e.sentiment_score, e.entry_date, e.created_at,
             em.name AS emotion_name
             FROM entries e
             LEFT JOIN emotions em ON em.id = e.dominant_emotion_id
             WHERE {$where}
-            ORDER BY e.entry_date DESC, e.created_at DESC
-            LIMIT :lim OFFSET :off");
+            ORDER BY e.entry_date DESC, e.created_at DESC"
+            . ($limit === null ? '' : ' LIMIT :lim OFFSET :off'));
         foreach ($params as $key => $value) {
-            $stmt->bindValue($key, $value, is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR);
+            $stmt->bindValue($key, $value, PDO::PARAM_INT);
         }
-        $stmt->bindValue(':lim', max(1, $limit), PDO::PARAM_INT);
-        $stmt->bindValue(':off', max(0, $offset), PDO::PARAM_INT);
+        if ($limit !== null) {
+            $stmt->bindValue(':lim', max(1, $limit), PDO::PARAM_INT);
+            $stmt->bindValue(':off', max(0, $offset), PDO::PARAM_INT);
+        }
         $stmt->execute();
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        return Crypt::decryptRows($stmt->fetchAll(PDO::FETCH_ASSOC), self::ENCRYPTED);
     }
 
-    public function countHistory(int $userId, string $search, int $mood) : int {
-        [$where, $params] = $this->historyFilter($userId, $search, $mood);
+    public function searchHistory(int $userId, string $search, int $mood) : array {
+        $needle = self::fold($search);
+        return array_values(array_filter(
+            $this->historyForUser($userId, $mood),
+            static fn (array $entry): bool => str_contains(self::fold((string) $entry['body']), $needle)
+        ));
+    }
+
+    private static function fold(string $text): string {
+        return strtr(mb_strtolower($text), self::ACCENTS);
+    }
+
+    public function countHistory(int $userId, int $mood) : int {
+        [$where, $params] = $this->historyFilter($userId, $mood);
         $stmt = $this->db->prepare("SELECT COUNT(*) FROM entries e WHERE {$where}");
         $stmt->execute($params);
         return (int) $stmt->fetchColumn();
@@ -312,7 +329,7 @@ class Entry{
         );
         $stmt->execute([':user_id' => $userId, ':date' => $date]);
 
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        return Crypt::decryptRows($stmt->fetchAll(PDO::FETCH_ASSOC), self::ENCRYPTED);
     }
 
     private function isValidDate(string $date) : bool {

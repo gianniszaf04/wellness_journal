@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 
+use App\Core\Crypt;
 use App\Models\ThoughtRecord;
 use App\Services\ThinkingTraps;
 
@@ -42,7 +43,11 @@ function tr_saved(Response $r): array
     assert_same(201, $r->status, $r->body);
     $stmt = db()->prepare('SELECT * FROM thought_records WHERE id = :id');
     $stmt->execute([':id' => (int) $r->json()['data']['id']]);
-    return (array) $stmt->fetch(PDO::FETCH_ASSOC);
+    $row = (array) $stmt->fetch(PDO::FETCH_ASSOC);
+    foreach (ThoughtRecord::ENCRYPTED as $column) {
+        assert_true($row[$column] === null || Crypt::isEncrypted((string) $row[$column]), "{$column} κρυπτογραφημένο στη βάση");
+    }
+    return Crypt::decryptColumns($row, ThoughtRecord::ENCRYPTED);
 }
 
 function tr_pick(array $row, array $keys): array

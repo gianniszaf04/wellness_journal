@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 
+use App\Core\Crypt;
 use App\Models\EmotionEntityRelation;
 
 // "όνομα:αναφορές:μέσος όρος:συναίσθημα" για καθε relation του χρηστη
@@ -108,4 +109,44 @@ test('PHP και MySQL συμφωνούν σε ώρα και μέρα', function
     $row = db()->query('SELECT @@session.time_zone AS tz, CURDATE() AS d')->fetch(PDO::FETCH_ASSOC);
     assert_same((new DateTime())->format('P'), $row['tz'], 'offset');
     assert_same(date('Y-m-d'), $row['d'], 'ημερομηνία');
+});
+
+test('το κείμενο της καταγραφής μένει κρυπτογραφημένο στη βάση και η αναζήτηση δουλεύει', function (): void {
+    FakeAi::start();
+    $a = make_user();
+    $b = make_user();
+    $raw = function (int $id): string {
+        $stmt = db()->prepare('SELECT body FROM entries WHERE id = :id');
+        $stmt->execute([':id' => $id]);
+        return (string) $stmt->fetchColumn();
+    };
+
+    $created = create_entry($a, 'Περπάτησα στη ΘΆΛΑΣΣΑ με τον Νίκο. SCORE=0.7 EMO=Χαρά');
+    $id = (int) $created['data']['id'];
+    $other = (int) create_entry($a, 'Διάβασα για τις εξετάσεις. SCORE=-0.7 EMO=Άγχος')['data']['id'];
+    create_entry($b, 'Η θάλασσα του άλλου χρήστη. SCORE=0.7 EMO=Χαρά');
+
+    assert_same('Περπάτησα στη ΘΆΛΑΣΣΑ με τον Νίκο. SCORE=0.7 EMO=Χαρά', $created['data']['body'], 'το API δίνει το κείμενο');
+    assert_true(Crypt::isEncrypted($raw($id)) && !str_contains($raw($id), 'Νίκο'), 'στη βάση κρυπτογραφημένο');
+
+    $a->http->api('PATCH', "api/entries/{$id}", ['body' => 'Περπάτησα στη ΘΆΛΑΣΣΑ μόνος. SCORE=0.7 EMO=Χαρά']);
+    assert_true(Crypt::isEncrypted($raw($id)) && !str_contains($raw($id), 'μόνος'), 'και μετά την επεξεργασία');
+    assert_same('Περπάτησα στη ΘΆΛΑΣΣΑ μόνος. SCORE=0.7 EMO=Χαρά', $a->http->api('GET', "api/entries/{$id}")->json()['data']['body']);
+
+    db()->prepare('UPDATE entries SET body = :body WHERE id = :id')->execute([':body' => 'Παλιά γραμμή με εξετασεις.', ':id' => $other]);
+    assert_same('Παλιά γραμμή με εξετασεις.', $a->http->api('GET', "api/entries/{$other}")->json()['data']['body'], 'παλιά γραμμή χωρίς κρυπτογράφηση');
+
+    $found = function (string $query) use ($a): array {
+        $html = html_entity_decode($a->http->get('entry/history?' . $query)->body);
+        return [str_contains($html, 'Περπάτησα στη'), str_contains($html, 'Παλιά γραμμή'), str_contains($html, 'του άλλου χρήστη')];
+    };
+    assert_same([true, true, false], $found(''), 'χωρίς αναζήτηση');
+    assert_same([true, false, false], $found(http_build_query(['q' => 'θαλασσα'])), 'χωρίς τόνους και με μικρά');
+    assert_same([false, true, false], $found(http_build_query(['q' => 'ΕΞΕΤΆΣΕΙΣ'])), 'κεφαλαία με τόνο');
+    assert_same([false, false, false], $found(http_build_query(['q' => 'θάλασσα', 'mood' => 1])), 'μαζί με φίλτρο διάθεσης');
+    assert_same([true, false, false], $found(http_build_query(['q' => 'μόνος', 'mood' => 5])));
+    assert_same([false, false, false], $found(http_build_query(['q' => '%'])), 'το % δεν είναι μπαλαντέρ');
+
+    $export = $a->http->get('account/export')->json();
+    assert_same(['Περπάτησα στη ΘΆΛΑΣΣΑ μόνος. SCORE=0.7 EMO=Χαρά', 'Παλιά γραμμή με εξετασεις.'], array_column($export['entries'], 'body'), 'η εξαγωγή δίνει το κείμενο');
 });

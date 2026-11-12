@@ -2,6 +2,7 @@
 declare(strict_types=1);
 namespace App\Models;
 
+use App\Core\Crypt;
 use Database;
 use PDO;
 use PDOException;
@@ -31,6 +32,7 @@ class ThoughtRecord {
     public const ANSWER_UNKNOWN = 'unknown';
 
     private const JSON_COLUMNS = ['emotions', 'model_ranking', 'answers'];
+    public const ENCRYPTED = ['event', 'thought', 'thought_mood', 'reframe', 'balanced_thought'];
 
     private PDO $db;
 
@@ -54,9 +56,9 @@ class ThoughtRecord {
             );
             $stmt->execute([
                 ':user_id' => $userId,
-                ':event' => $record['event'],
-                ':thought' => $record['thought'],
-                ':thought_mood' => $record['thought_mood'] ?? null,
+                ':event' => Crypt::encrypt((string) $record['event']),
+                ':thought' => Crypt::encrypt((string) $record['thought']),
+                ':thought_mood' => Crypt::encryptNullable($record['thought_mood'] ?? null),
                 ':thought_mood_key' => $record['thought_mood_key'],
                 ':emotions' => json_encode($record['emotions'], JSON_UNESCAPED_UNICODE),
                 ':probability' => $record['model_probability'] ?? null,
@@ -67,8 +69,8 @@ class ThoughtRecord {
                 ':observed_type' => $record['observed_type'] ?? null,
                 ':source' => $record['observation_source'],
                 ':response' => $record['response'] ?? null,
-                ':reframe' => $record['reframe'] ?? null,
-                ':balanced' => $record['balanced_thought'] ?? null,
+                ':reframe' => Crypt::encryptNullable($record['reframe'] ?? null),
+                ':balanced' => Crypt::encryptNullable($record['balanced_thought'] ?? null),
                 ':crisis' => empty($record['crisis']) ? 0 : 1,
             ]);
             return (int) $this->db->lastInsertId();
@@ -101,6 +103,6 @@ class ThoughtRecord {
         foreach (self::JSON_COLUMNS as $column) {
             $row[$column] = $row[$column] === null ? null : json_decode((string) $row[$column], true);
         }
-        return $row;
+        return Crypt::decryptColumns($row, self::ENCRYPTED);
     }
 }

@@ -2,6 +2,7 @@
 declare(strict_types=1);
 namespace App\Services;
 
+use App\Core\Crypt;
 use App\Models\EmotionEntityRelation;
 use App\Models\EntryLabel;
 use App\Models\Insight;
@@ -55,10 +56,10 @@ class UserDataExport
     // καθε καταγραφη μαζι με τα entities, emotions και distortion types της
     private function entries(int $userId): array
     {
-        $entries = $this->fetchAll(
+        $entries = Crypt::decryptRows($this->fetchAll(
             'SELECT e.*, em.name AS emotion_name FROM entries e
             LEFT JOIN emotions em ON em.id = e.dominant_emotion_id
-            WHERE e.user_id = :user_id ORDER BY e.entry_date, e.id', $userId);
+            WHERE e.user_id = :user_id ORDER BY e.entry_date, e.id', $userId), ['body']);
 
         $entities = [];
         foreach ($this->fetchAll(

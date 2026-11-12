@@ -117,7 +117,7 @@ wellness_journal/
     Core/            Router, Request, Session, Csrf, Env, SecurityHeaders
     Middleware/      RequireLogin, RequireGuest, VerifyCsrf, RateLimit, RateLimitEntries, RateLimitLive
     Models/          User, Entry, EntryEntity, EmotionEntityRelation, Insight, DailySummary, VerificationCode κ.ά.
-    Services/        AiClient, CrisisSupport, Mailer, UserDataExport
+    Services/        AiClient, CrisisSupport, EntryAnalysis, Mailer, UserDataExport
     Views/           templates των σελίδων
   Config/            bootstrap.php, database.php
   Routes/            web.php, όλες οι διαδρομές
@@ -132,7 +132,7 @@ wellness_journal/
     training/        train_mtl.py, evaluate_mtl.py, eval_check_set.py, dataset.csv
     experiments/     δοκιμές που δεν πέρασαν και δεν τις χρησιμοποιεί η εφαρμογή
     runs/            ένα run.json για κάθε training
-  bin/               maintenance.php
+  bin/               maintenance.php, encrypt_texts.php
   design/            πρόχειρα σχέδια της εμφάνισης
   storage/           rate limit και logs (εκτός git)
   tests/             tests σε καθαρή PHP
@@ -158,7 +158,10 @@ cp .env.example .env
 Συμπληρώστε τουλάχιστον:
 
 - τα `DB_HOST`, `DB_NAME`, `DB_USER`, `DB_PASS`;
-- τα `MAIL_*`, αλλιώς δεν μπορεί να ολοκληρωθεί η εγγραφή.
+- τα `MAIL_*`, αλλιώς δεν μπορεί να ολοκληρωθεί η εγγραφή;
+- το `APP_KEY`, το κλειδί που κρυπτογραφεί τα κείμενα. Το φτιάχνει η εντολή `php bin/encrypt_texts.php --key`.
+
+Κρατήστε αντίγραφο του `APP_KEY` έξω από τον server. Αν χαθεί ή αλλάξει, τα κείμενα που έχουν ήδη γραφτεί δεν διαβάζονται ξανά.
 
 Δείτε την ενότητα [Ρυθμίσεις](#ρυθμίσεις-env).
 
@@ -212,6 +215,7 @@ curl http://127.0.0.1:8000/health
 | `APP_URL`                          | Βασική διεύθυνση της εφαρμογής                                            | αυτόματη ανίχνευση               |
 | `APP_DEBUG`                        | Εμφάνιση σφαλμάτων                                                        | κλειστό                          |
 | `APP_TIMEZONE`                     | Ζώνη ώρας για PHP και MySQL                                               | `Europe/Athens`                  |
+| `APP_KEY`                          | Κλειδί κρυπτογράφησης των κειμένων, 32 bytes σε base64 (υποχρεωτικό)      |                                  |
 | `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD` | SMTP για τα email επιβεβαίωσης και επαναφοράς κωδικού | θύρα `587`                     |
 | `MAIL_FROM`, `MAIL_FROM_NAME`      | Αποστολέας                                                                | `MAIL_USERNAME`, `Wellness Journal` |
 | `AI_SERVICE_URL`                   | Διεύθυνση του endpoint ανάλυσης                                           | `http://127.0.0.1:8000/analyze`  |
@@ -458,6 +462,15 @@ php tests/run.php password   # μόνο όσα ταιριάζουν στο όν�
 0 4 * * * /Applications/XAMPP/xamppfiles/bin/php /Applications/XAMPP/xamppfiles/htdocs/wellness_journal/bin/maintenance.php
 ```
 
+Το `bin/encrypt_texts.php` κρυπτογραφεί τις γραμμές που γράφτηκαν πριν μπει η κρυπτογράφηση. Χρειάζεται μία φορά, μετά από αντίγραφο ασφαλείας της βάσης:
+
+```bash
+php bin/encrypt_texts.php           # δοκιμή: μετρά πόσες γραμμές είναι χωρίς κρυπτογράφηση
+php bin/encrypt_texts.php --apply   # τις κρυπτογραφεί
+```
+
+Όσες γραμμές δεν έχουν κρυπτογραφηθεί ακόμα, η εφαρμογή τις διαβάζει κανονικά.
+
 ---
 
 ## Ασφάλεια και ιδιωτικότητα
@@ -469,6 +482,11 @@ php tests/run.php password   # μόνο όσα ταιριάζουν στο όν�
 - **Κωδικοί email:**
   - λήγουν σε 15 λεπτά και δέχονται έως 5 προσπάθειες;
   - νέα αποστολή γίνεται μετά από 60 δευτερόλεπτα.
+- **Κρυπτογράφηση κειμένων:**
+  - το κείμενο κάθε καταγραφής και τα κείμενα του τετραδίου έντονων στιγμών γράφονται στη βάση κρυπτογραφημένα με AES-256-GCM, με κλειδί το `APP_KEY` του `.env`;
+  - προστατεύει αν διαρρεύσει μόνο η βάση (π.χ. ένα αντίγραφο ασφαλείας ή SQL injection). Δεν προστατεύει αν κάποιος πάρει όλο τον server, γιατί εκεί βρίσκεται και το κλειδί;
+  - χωρίς κρυπτογράφηση μένουν όσα χρειάζεται η βάση για ερωτήματα: τα ονόματα που βρίσκει το NER, οι βαθμολογίες και τα συναισθήματα, τα insights και οι ημερήσιες συνόψεις;
+  - η αναζήτηση στο ιστορικό γίνεται στην PHP, αφού αποκρυπτογραφηθούν οι καταγραφές του χρήστη.
 - **CSRF:** προστασία σε κάθε αίτημα που αλλάζει δεδομένα.
 - **Rate limiting:**
   - σύνδεση, εγγραφή, επιβεβαίωση email, επαναφορά και αλλαγές λογαριασμού: 5 προσπάθειες ανά 15 λεπτά;

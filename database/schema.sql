@@ -289,9 +289,9 @@ CONSTRAINT fk_user_words_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELE
 CREATE TABLE IF NOT EXISTS thought_records (
 id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
 user_id BIGINT UNSIGNED NOT NULL,
-event VARCHAR(1000) NOT NULL,
-thought VARCHAR(300) NOT NULL,
-thought_mood VARCHAR(300) NULL,
+event TEXT NOT NULL,
+thought TEXT NOT NULL,
+thought_mood TEXT NULL,
 thought_mood_key VARCHAR(10) NOT NULL,
 emotions JSON NOT NULL,
 model_probability DECIMAL(5,4) NULL,
@@ -302,8 +302,8 @@ answers JSON NULL,
 observed_type VARCHAR(50) NULL,
 observation_source VARCHAR(10) NOT NULL,
 response VARCHAR(10) NULL,
-reframe VARCHAR(1000) NULL,
-balanced_thought VARCHAR(300) NULL,
+reframe TEXT NULL,
+balanced_thought TEXT NULL,
 crisis TINYINT(1) NOT NULL DEFAULT 0,
 created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -331,7 +331,8 @@ INSERT IGNORE INTO schema_migrations (migration) VALUES
 ('006_generalize_verification_codes.sql'),
 ('007_add_irony_distortion_detected.sql'),
 ('008_add_user_words.sql'),
-('009_add_thought_records.sql');
+('009_add_thought_records.sql'),
+('010_widen_thought_record_texts.sql');
 
 
 
