@@ -133,6 +133,7 @@ wellness_journal/
     experiments/     δοκιμές που δεν πέρασαν και δεν τις χρησιμοποιεί η εφαρμογή
     runs/            ένα run.json για κάθε training
   bin/               maintenance.php, encrypt_texts.php
+  .github/workflows/ tests.yml, τρέχει τα tests στο GitHub
   design/            πρόχειρα σχέδια της εμφάνισης
   storage/           rate limit και logs (εκτός git)
   tests/             tests σε καθαρή PHP
@@ -443,6 +444,8 @@ php tests/run.php password   # μόνο όσα ταιριάζουν στο όν�
 - Για διαφορετική διεύθυνση από το `APP_URL`: `TEST_BASE_URL=...`.
 
 Τα tests χρησιμοποιούν τη βάση του `.env`. Δημιουργούν χρήστες `*@tests.invalid` (σε αυτούς δεν στέλνεται email), τους διαγράφουν στο τέλος και αδειάζουν το `storage/ratelimit`. Μόνο για τοπική ανάπτυξη.
+
+Τα ίδια tests τρέχουν αυτόματα στο GitHub Actions σε κάθε push στο `main` και σε κάθε pull request (`.github/workflows/tests.yml`). Εκεί στήνεται από την αρχή μια άδεια MariaDB 10.4 με το `schema.sql` και το `seed.sql`, Apache με PHP 8.2 και ένα `.env` με τυχαίο κωδικό βάσης και τυχαίο `APP_KEY`.
 
 ---
 

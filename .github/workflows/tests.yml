@@ -1,0 +1,80 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    services:
+      mariadb:
+        image: mariadb:10.4
+        env:
+          MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.2"
+          extensions: pdo_mysql, curl, mbstring, openssl
+          coverage: none
+
+      - name: Install Apache with PHP
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y apache2 libapache2-mod-php8.2
+          sudo a2dismod mpm_event mpm_worker || true
+          sudo a2enmod mpm_prefork php8.2 rewrite
+
+      - name: Write .env
+        run: |
+          cp .env.example .env
+          set_env() { sed -i "s|^$1=.*|$1=$2|" .env; }
+          DB_PASS="$(openssl rand -hex 16)"
+          set_env DB_HOST 127.0.0.1
+          set_env DB_NAME wellness_journal
+          set_env DB_USER wellness_user
+          set_env DB_PASS "$DB_PASS"
+          set_env APP_URL http://localhost/wellness_journal
+          set_env APP_KEY "$(openssl rand -base64 32)"
+          set_env AI_SERVICE_URL http://127.0.0.1:8000/analyze
+          echo "DB_PASS=$DB_PASS" >> "$GITHUB_ENV"
+
+      - name: Create the database
+        env:
+          DB_CONTAINER: ${{ job.services.mariadb.id }}
+        run: |
+          docker exec -i "$DB_CONTAINER" mysql -uroot < database/schema.sql
+          docker exec -i "$DB_CONTAINER" mysql -uroot < database/seed.sql
+          docker exec -i "$DB_CONTAINER" mysql -uroot -e "CREATE USER 'wellness_user'@'%' IDENTIFIED BY '$DB_PASS'; GRANT SELECT, INSERT, UPDATE, DELETE ON wellness_journal.* TO 'wellness_user'@'%';"
+
+      - name: Start Apache
+        run: |
+          sudo sed -i "s/^export APACHE_RUN_USER=.*/export APACHE_RUN_USER=$(id -un)/; s/^export APACHE_RUN_GROUP=.*/export APACHE_RUN_GROUP=$(id -gn)/" /etc/apache2/envvars
+          printf '<Directory /var/www/html>\n    Options FollowSymLinks\n    AllowOverride All\n    Require all granted\n</Directory>\n' | sudo tee /etc/apache2/conf-available/wellness.conf
+          sudo a2enconf wellness
+          sudo ln -s "$GITHUB_WORKSPACE" /var/www/html/wellness_journal
+          mkdir -p storage/ratelimit
+          sudo systemctl restart apache2
+          curl -sS -o /dev/null -w "%{http_code}\n" http://localhost/wellness_journal/login
+
+      - name: Run tests
+        run: php tests/run.php
+
+      - name: Show the Apache error log
+        if: failure()
+        run: sudo tail -n 100 /var/log/apache2/error.log
