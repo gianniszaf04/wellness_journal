@@ -33,12 +33,11 @@ jobs:
           extensions: pdo_mysql, curl, mbstring, openssl
           coverage: none
 
-      - name: Install Apache with PHP
+      - name: Install Apache
         run: |
           sudo apt-get update
-          sudo apt-get install -y apache2 libapache2-mod-php8.2
-          sudo a2dismod mpm_event mpm_worker || true
-          sudo a2enmod mpm_prefork php8.2 rewrite
+          sudo apt-get install -y apache2
+          sudo a2enmod rewrite proxy_fcgi setenvif
 
       - name: Write .env
         run: |
@@ -62,10 +61,14 @@ jobs:
           docker exec -i "$DB_CONTAINER" mysql -uroot < database/seed.sql
           docker exec -i "$DB_CONTAINER" mysql -uroot -e "CREATE USER 'wellness_user'@'%' IDENTIFIED BY '$DB_PASS'; GRANT SELECT, INSERT, UPDATE, DELETE ON wellness_journal.* TO 'wellness_user'@'%';"
 
-      - name: Start Apache
+      - name: Start PHP-FPM and Apache
         run: |
-          sudo sed -i "s/^export APACHE_RUN_USER=.*/export APACHE_RUN_USER=$(id -un)/; s/^export APACHE_RUN_GROUP=.*/export APACHE_RUN_GROUP=$(id -gn)/" /etc/apache2/envvars
-          printf '<Directory /var/www/html>\n    Options FollowSymLinks\n    AllowOverride All\n    Require all granted\n</Directory>\n' | sudo tee /etc/apache2/conf-available/wellness.conf
+          RUN_USER="$(id -un)"
+          RUN_GROUP="$(id -gn)"
+          sudo sed -i "s/^user = .*/user = $RUN_USER/; s/^group = .*/group = $RUN_GROUP/; s/^listen.owner = .*/listen.owner = $RUN_USER/; s/^listen.group = .*/listen.group = $RUN_GROUP/" /etc/php/8.2/fpm/pool.d/www.conf
+          sudo systemctl restart php8.2-fpm
+          sudo sed -i "s/^export APACHE_RUN_USER=.*/export APACHE_RUN_USER=$RUN_USER/; s/^export APACHE_RUN_GROUP=.*/export APACHE_RUN_GROUP=$RUN_GROUP/" /etc/apache2/envvars
+          printf '<Directory /var/www/html>\n    Options FollowSymLinks\n    AllowOverride All\n    Require all granted\n</Directory>\n<FilesMatch "\\.php$">\n    SetHandler "proxy:unix:/run/php/php8.2-fpm.sock|fcgi://localhost"\n</FilesMatch>\n' | sudo tee /etc/apache2/conf-available/wellness.conf
           sudo a2enconf wellness
           sudo ln -s "$GITHUB_WORKSPACE" /var/www/html/wellness_journal
           mkdir -p storage/ratelimit
@@ -77,4 +80,6 @@ jobs:
 
       - name: Show the Apache error log
         if: failure()
-        run: sudo tail -n 100 /var/log/apache2/error.log
+        run: |
+          sudo tail -n 100 /var/log/apache2/error.log || true
+          sudo tail -n 50 /var/log/php8.2-fpm.log || true
